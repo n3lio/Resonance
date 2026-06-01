@@ -2,6 +2,13 @@
   "musicFolders": [
     "C:/Users/Lionel/Music"
   ],
+  "excludeFolders": [
+    "Apple Music",
+    "Dopamine",
+    "iTunes",
+    "MusicBee"
+  ],
   "port": 3000,
-  "scanOnStartup": true
+  "scanOnStartup": true,
+  "watchForChanges": true
 }

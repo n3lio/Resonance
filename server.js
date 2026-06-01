@@ -75,6 +75,7 @@ function savePlaylists() {
 
 // ─── Library Scanner ─────────────────────────────────────────────────────────
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.flac', '.ogg', '.wav', '.aac']);
+const EXCLUDE_FOLDERS = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
 
 async function scanFolders() {
   console.log('🎵 Scanning music folders...');
@@ -107,6 +108,8 @@ async function scanDirectory(dir) {
     const fullPath = path.join(dir, entry.name);
 
     if (entry.isDirectory()) {
+      // Skip excluded folders
+      if (EXCLUDE_FOLDERS.has(entry.name.toLowerCase())) continue;
       await scanDirectory(fullPath);
     } else if (AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
       try {
@@ -510,4 +513,38 @@ app.get('*', (req, res) => {
 // ─── Startup ─────────────────────────────────────────────────────────────────
 if (config.scanOnStartup) {
   scanFolders().catch(console.error);
+}
+
+// ─── File Watcher (auto-detect new/removed tracks) ───────────────────────────
+if (config.watchForChanges) {
+  let rescanTimeout = null;
+
+  for (const folder of config.musicFolders) {
+    const resolved = path.resolve(folder);
+    if (!fs.existsSync(resolved)) continue;
+
+    try {
+      fs.watch(resolved, { recursive: true }, (eventType, filename) => {
+        if (!filename) return;
+        const ext = path.extname(filename).toLowerCase();
+        if (!AUDIO_EXTENSIONS.has(ext)) return;
+
+        // Check if it's in an excluded folder
+        const parts = filename.split(path.sep);
+        if (parts.some(p => EXCLUDE_FOLDERS.has(p.toLowerCase()))) return;
+
+        // Debounce: wait 2s after last change before rescanning
+        // (handles bulk copies)
+        clearTimeout(rescanTimeout);
+        rescanTimeout = setTimeout(async () => {
+          console.log('📂 Changes detected, rescanning...');
+          await scanFolders();
+          broadcast({ type: 'library-updated', data: { count: library.length } });
+        }, 2000);
+      });
+      console.log(`👁️  Watching for changes: ${resolved}`);
+    } catch (e) {
+      console.warn(`⚠️  Could not watch: ${resolved}`, e.message);
+    }
+  }
 }
