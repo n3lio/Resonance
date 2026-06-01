@@ -157,9 +157,17 @@ function getTrackById(id) {
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 const server = app.listen(config.port, '0.0.0.0', () => {
-  console.log(`🚀 Radio MP3 running on http://localhost:${config.port}`);
-  console.log(`📡 LAN access: http://<your-pc-ip>:${config.port}`);
-  console.log(`🔒 Security: Helmet + rate limiting enabled`);
+  const now = new Date().toLocaleString('fr-FR');
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════╗');
+  console.log('║           🎵  RADIO MP3 — SERVER UP  🎵          ║');
+  console.log('╠══════════════════════════════════════════════════╣');
+  console.log(`║  Started:  ${now.padEnd(36)}║`);
+  console.log(`║  Local:    http://localhost:${config.port}                 ║`);
+  console.log(`║  LAN:      http://172.20.10.5:${config.port}              ║`);
+  console.log(`║  Security: Helmet + rate limiting ✔              ║`);
+  console.log('╚══════════════════════════════════════════════════╝');
+  console.log('');
 });
 
 const wss = new WebSocketServer({ server, maxPayload: 1024 }); // limit WS payload
