@@ -1,0 +1,7 @@
+{
+  "musicFolders": [
+    "C:/Users/Lionel/Music"
+  ],
+  "port": 3000,
+  "scanOnStartup": true
+}
