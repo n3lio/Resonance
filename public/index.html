@@ -829,7 +829,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 function coverImg(track, size = 40) {
   if (track && track.hasCover) {
     // Add onerror handler to fallback to placeholder if cover fails to load
-    return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\"${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}\\">${PLACEHOLDER_SVG}</div>'">`;
+    return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}" style="display:none">${PLACEHOLDER_SVG}</div>`;
   }
   return `<div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}">${PLACEHOLDER_SVG}</div>`;
 }

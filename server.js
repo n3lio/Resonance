@@ -492,21 +492,38 @@ function playLocal() {
   const track = library[queue[currentIndex]];
   if (!track) return;
 
-  mpvProcess = spawn('mpv', ['--no-video', '--input-terminal=yes', track.path], {
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  try {
+    mpvProcess = spawn('mpv', ['--no-video', '--input-terminal=yes', track.path], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
-  mpvProcess.on('close', (code) => {
-    mpvProcess = null;
-    if (code === 0 && isPlaying && currentIndex < queue.length - 1) {
-      currentIndex++;
-      broadcast({ type: 'state', data: getState() });
-      playLocal();
-    } else {
+    mpvProcess.on('error', (err) => {
+      console.error('⚠️  mpv error:', err.message);
+      if (err.code === 'ENOENT') {
+        console.error('⚠️  mpv not found. Install mpv and add it to PATH, or use Stream mode instead.');
+      }
+      mpvProcess = null;
       isPlaying = false;
       broadcast({ type: 'state', data: getState() });
-    }
-  });
+    });
+
+    mpvProcess.on('close', (code) => {
+      mpvProcess = null;
+      if (code === 0 && isPlaying && currentIndex < queue.length - 1) {
+        currentIndex++;
+        broadcast({ type: 'state', data: getState() });
+        playLocal();
+      } else {
+        isPlaying = false;
+        broadcast({ type: 'state', data: getState() });
+      }
+    });
+  } catch (err) {
+    console.error('⚠️  Failed to start mpv:', err.message);
+    mpvProcess = null;
+    isPlaying = false;
+    broadcast({ type: 'state', data: getState() });
+  }
 }
 
 // ─── Catch-all: serve SPA for any non-API route ─────────────────────────────
