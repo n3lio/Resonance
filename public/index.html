@@ -841,7 +841,6 @@
       <div class="viz-menu-item" data-viz="bars">Bars</div>
       <div class="viz-menu-item" data-viz="circular">Circular</div>
       <div class="viz-menu-item" data-viz="wave">Wave</div>
-      <div class="viz-menu-item" data-viz="particles">Particles</div>
       <div class="viz-menu-item close-item" id="vizCloseItem">Fermer le visualizer</div>
     </div>
   </div>
@@ -1114,17 +1113,22 @@ document.getElementById('genreFilter').addEventListener('change', function(e) {
 function renderQueue() {
   var list = document.getElementById('queueList');
   if (!state.queue || state.queue.length === 0) {
-    list.innerHTML = '<div style="padding: 14px; color: var(--text-dim); font-size: 0.8rem;">File vide</div>';
+    list.innerHTML = '<div style="padding: 24px; color: var(--text-dim); font-size: 0.85rem; text-align:center;">File d\'attente vide — lance une track !</div>';
     return;
   }
   list.innerHTML = state.queue.map(function(t, i) {
-    return '<div class="queue-item ' + (i === state.currentIndex ? 'current' : '') + '" data-index="' + i + '">' +
-      '<span class="q-index">' + (i + 1) + '</span>' +
-      '<span class="q-title">' + esc(t.title) + ' — ' + esc(t.artist) + '</span>' +
+    return '<div class="track-item ' + (i === state.currentIndex ? 'playing' : '') + '" data-index="' + i + '">' +
+      coverImg(t) +
+      '<div class="track-info">' +
+        '<div class="track-title">' + esc(t.title) + '</div>' +
+        '<div class="track-artist">' + esc(t.artist) + '</div>' +
+      '</div>' +
+      (t.genre ? '<span class="track-genre">' + esc(t.genre) + '</span>' : '') +
+      '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
     '</div>';
   }).join('');
 
-  list.querySelectorAll('.queue-item').forEach(function(el) {
+  list.querySelectorAll('.track-item').forEach(function(el) {
     el.addEventListener('click', function() {
       api('/play', 'POST', { index: parseInt(el.dataset.index) });
     });
