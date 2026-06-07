@@ -714,6 +714,7 @@
   <div class="player-controls">
     <button id="prevBtn">⏮</button>
     <button class="play-btn" id="playPauseBtn">▶</button>
+    <button id="stopBtn" style="color: var(--red);">⏹</button>
     <button id="nextBtn">⏭</button>
   </div>
   <div class="progress-container">
@@ -867,6 +868,9 @@ function renderTracks() {
   list.querySelectorAll('.track-item').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('add-btn')) return;
+      // IMMEDIATELY stop any playing audio to prevent overlap
+      audio.pause();
+      audio.currentTime = 0;
       const id = parseInt(el.dataset.id);
       // Replace queue with just this track and play it immediately
       api('/queue', 'POST', { trackIds: [id] }).then(() => api('/play', 'POST', { index: 0 }));
@@ -1052,14 +1056,18 @@ function updateUI() {
 }
 
 // ─── Audio Playback ──────────────────────────────────────────────────────────
-function loadTrack(track) {
+function loadTrack(track, autoPlay = true) {
   if (state.playMode !== 'stream') return;
-  // Stop any currently playing audio before loading new track
+  // ALWAYS stop previous audio first to prevent overlap
   audio.pause();
   audio.currentTime = 0;
   audio.src = `/api/stream/${track.id}`;
-  if (state.isPlaying) {
-    audio.play().catch(err => console.warn('Play failed:', err));
+  // Auto-play the new track (unless explicitly disabled)
+  if (autoPlay && state.isPlaying) {
+    // Small delay to ensure previous audio stopped
+    setTimeout(() => {
+      audio.play().catch(err => console.warn('Play failed:', err));
+    }, 50);
   }
 }
 
@@ -1097,6 +1105,14 @@ document.getElementById('playPauseBtn').addEventListener('click', () => {
 
 document.getElementById('nextBtn').addEventListener('click', () => api('/next', 'POST'));
 document.getElementById('prevBtn').addEventListener('click', () => api('/prev', 'POST'));
+document.getElementById('stopBtn').addEventListener('click', () => {
+  // Full stop: pause audio, clear queue, reset state
+  audio.pause();
+  audio.currentTime = 0;
+  audio.src = '';
+  api('/pause', 'POST');
+  api('/queue', 'POST', { trackIds: [] });
+});
 document.getElementById('shuffleQueue').addEventListener('click', () => api('/shuffle', 'POST'));
 document.getElementById('clearQueue').addEventListener('click', () => api('/queue', 'POST', { trackIds: [] }));
 

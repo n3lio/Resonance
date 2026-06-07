@@ -157,16 +157,33 @@ function getTrackById(id) {
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 const server = app.listen(config.port, '0.0.0.0', () => {
-  const now = new Date().toLocaleString('fr-FR');
+  const now = new Date().toLocaleString('fr-FR', {
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+  });
+  const localUrl = `http://localhost:${config.port}`;
+  const os = require('os');
+  const nets = os.networkInterfaces();
+  let lanIp = '0.0.0.0';
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) {
+        lanIp = net.address;
+        break;
+      }
+    }
+  }
+  const lanUrl = `http://${lanIp}:${config.port}`;
+
   console.log('');
-  console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║           🎵  RESONANCE — SERVER UP  🎵          ║');
-  console.log('╠══════════════════════════════════════════════════╣');
-  console.log(`║  Started:  ${now.padEnd(36)}║`);
-  console.log(`║  Local:    http://localhost:${config.port}                 ║`);
-  console.log(`║  LAN:      http://172.20.10.5:${config.port}              ║`);
-  console.log(`║  Security: Helmet + rate limiting ✔              ║`);
-  console.log('╚══════════════════════════════════════════════════╝');
+  console.log('='.repeat(60));
+  console.log('  🎵  RESONANCE — SERVER READY');
+  console.log('='.repeat(60));
+  console.log(`  Started: ${now}`);
+  console.log(`  Local:   ${localUrl}`);
+  console.log(`  LAN:     ${lanUrl}`);
+  console.log(`  Mode:    ${playMode}`);
+  console.log('='.repeat(60));
   console.log('');
 });
 
@@ -348,9 +365,16 @@ app.post('/api/pause', (req, res) => {
 });
 
 app.post('/api/next', (req, res) => {
-  if (currentIndex < queue.length - 1) currentIndex++;
-  if (playMode === 'local' && isPlaying) playLocal();
-  broadcast({ type: 'state', data: getState() });
+  if (currentIndex < queue.length - 1) {
+    currentIndex++;
+    // Keep playing state when auto-advancing to next track
+    if (playMode === 'local' && isPlaying) playLocal();
+    broadcast({ type: 'state', data: getState() });
+  } else {
+    // End of queue - stop playing
+    isPlaying = false;
+    broadcast({ type: 'state', data: getState() });
+  }
   res.json({ ok: true });
 });
 

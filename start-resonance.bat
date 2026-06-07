@@ -4,9 +4,9 @@ REM This script starts the Node.js server
 
 cd /d "%~dp0"
 echo.
-echo ╔══════════════════════════════════════════════════╗
-echo ║           🎵  Starting Resonance...  🎵          ║
-echo ╚══════════════════════════════════════════════════╝
+echo ============================================================
+echo   Starting Resonance Music Server...
+echo ============================================================
 echo.
 
 REM Check if node_modules exists, install if not
