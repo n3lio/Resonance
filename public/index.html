@@ -149,7 +149,7 @@
     }
 
     .genre-select {
-      padding: 10px 14px;
+      padding: 10px 30px 10px 14px;
       border-radius: 20px;
       border: 1px solid var(--border);
       background: var(--surface);
@@ -163,6 +163,11 @@
       text-overflow: ellipsis;
       overflow: hidden;
       white-space: nowrap;
+      -webkit-appearance: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a918a' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
     }
 
     .genre-select:focus { border-color: var(--accent); }
@@ -203,12 +208,6 @@
     }
 
     /* ─── Main Layout ─── */
-    main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
     .panel { display: none; flex: 1; flex-direction: column; overflow: hidden; }
     .panel.active { display: flex; }
 
@@ -327,14 +326,6 @@
     .track-item .add-btn:hover { transform: scale(1.2); }
 
     /* ─── Queue Panel (right sidebar) ─── */
-    .queue-panel {
-      width: 300px;
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      background: var(--surface);
-    }
-
     .queue-header {
       padding: 12px 16px;
       border-bottom: 1px solid var(--border);
@@ -812,8 +803,6 @@
 
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
-      main { flex-direction: column; }
-      .queue-panel { width: 100%; max-height: 180px; border-left: none; border-top: 1px solid var(--border); }
       .player-track-info { width: 120px; }
       .volume-control { display: none; }
       .viz-container { height: 140px; }
@@ -836,7 +825,8 @@
 </header>
 
 <div class="tabs">
-  <div class="tab active" data-tab="library">Bibliothèque</div>
+  <div class="tab active" data-tab="nowplaying">En lecture</div>
+  <div class="tab" data-tab="library">Bibliothèque</div>
   <div class="tab" data-tab="playlists">Playlists</div>
 </div>
 
@@ -844,7 +834,7 @@
 <div class="viz-container active" id="vizContainer">
   <div class="viz-gear">
     <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15 1.65 1.65 0 003 14.08V14a2 2 0 014 0v.09a1.65 1.65 0 001 1.51zM21 12h.09m-18.18 0H3m16.4-6.6l.06-.06M4.93 4.93l-.06-.06M12 3v-.09"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
     <div class="viz-menu" id="vizMenu">
       <div class="viz-menu-item active" data-viz="starfield">Starfield</div>
@@ -858,8 +848,21 @@
   <canvas id="vizCanvas"></canvas>
 </div>
 
+<!-- Now Playing Tab -->
+<div class="panel active" id="panel-nowplaying">
+  <div class="queue-header" style="padding:14px 24px; border-bottom:1px solid var(--border);">
+    <h2 style="font-size:0.9rem; font-weight:600;">File d'attente</h2>
+    <div class="queue-actions">
+      <button id="shuffleQueue">Shuffle</button>
+      <button id="clearQueue">Clear</button>
+      <button id="saveQueueBtn">Sauver</button>
+    </div>
+  </div>
+  <div class="queue-list" id="queueList" style="flex:1; overflow-y:auto;"></div>
+</div>
+
 <!-- Library Tab -->
-<div class="panel active" id="panel-library">
+<div class="panel" id="panel-library">
   <div class="toolbar">
     <input type="text" id="search" placeholder="Rechercher titre, artiste, album...">
     <select class="genre-select" id="genreFilter">
@@ -879,20 +882,6 @@
   <div class="playlists-view" id="playlistsView"></div>
 </div>
 
-<main>
-  <!-- Queue always visible -->
-  <div class="queue-panel">
-    <div class="queue-header">
-      <h2>File d'attente</h2>
-      <div class="queue-actions">
-        <button id="shuffleQueue">Shuffle</button>
-        <button id="clearQueue">Clear</button>
-        <button id="saveQueueBtn">Sauver</button>
-      </div>
-    </div>
-    <div class="queue-list" id="queueList"></div>
-  </div>
-</main>
 
 <!-- Player Bar -->
 <div class="player-bar">
