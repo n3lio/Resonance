@@ -23,6 +23,6 @@ $Shortcut.Save()
 
 Write-Host "✅ Shortcut created: $ShortcutPath" -ForegroundColor Green
 Write-Host ""
-Write-Host "You can now double-click 'Resonance' on your desktop to start the server!" -ForegroundColor Yellow
+Write-Host "You can now double-click Resonance on your desktop to start the server!" -ForegroundColor Yellow
 Write-Host ""
 pause
