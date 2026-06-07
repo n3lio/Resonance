@@ -1010,15 +1010,19 @@ async function api(path, method, body) {
 }
 
 async function fetchTracks(query, genre) {
-  query = query || '';
-  genre = genre || '';
-  var url = '/tracks';
-  var params = [];
-  if (query) params.push('q=' + encodeURIComponent(query));
-  if (genre) params.push('genre=' + encodeURIComponent(genre));
-  if (params.length) url += '?' + params.join('&');
-  tracks = await api(url);
-  renderTracks();
+  try {
+    query = query || '';
+    genre = genre || '';
+    var url = '/tracks';
+    var params = [];
+    if (query) params.push('q=' + encodeURIComponent(query));
+    if (genre) params.push('genre=' + encodeURIComponent(genre));
+    if (params.length) url += '?' + params.join('&');
+    tracks = await api(url);
+    renderTracks();
+  } catch (e) {
+    console.error('[Resonance] fetchTracks failed:', e);
+  }
 }
 
 async function fetchGenres() {
@@ -1479,11 +1483,15 @@ var vizMode = 'starfield'; // Default mode
 
 function initViz() {
   if (vizInitialized) return;
-  viz = new Visualizer(vizCanvas, audio);
-  viz.setMode(vizMode);
-  viz.initAudio();
-  vizInitialized = true;
-  viz.start();
+  try {
+    viz = new Visualizer(vizCanvas, audio);
+    viz.setMode(vizMode);
+    viz.initAudio();
+    vizInitialized = true;
+    viz.start();
+  } catch (e) {
+    console.warn('[Resonance] Visualizer init failed:', e.message);
+  }
 }
 
 function toggleViz() {
@@ -1491,8 +1499,7 @@ function toggleViz() {
   vizContainer.classList.toggle('active', vizVisible);
   if (vizVisible) {
     if (!vizInitialized) initViz();
-    viz.resize();
-    viz.start();
+    if (viz) { viz.resize(); viz.start(); }
   } else {
     if (viz) viz.stop();
   }
@@ -1539,8 +1546,6 @@ audio.addEventListener('play', function() {
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();
 fetchGenres();
-// Force stream mode on server (audio plays in browser)
-api('/mode', 'POST', { mode: 'stream' });
 </script>
 </body>
 </html>
