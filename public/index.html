@@ -977,6 +977,8 @@ let playlists = [];
 // ALWAYS default to stream mode (audio plays in browser)
 let state = { queue: [], currentIndex: 0, isPlaying: false, playMode: 'stream', currentTrack: null };
 const audio = document.getElementById('audio');
+// This device is "active" only if the user has interacted with playback HERE
+var thisDeviceActive = false;
 
 const PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 
@@ -990,17 +992,17 @@ function connectWS() {
     if (msg.type === 'state') {
       state = msg.data;
       updateUI();
-      // Load new track only if:
-      // 1. Server says playing
-      // 2. Track changed (different from what's currently loaded)
-      // 3. We're not in a playLock (user click in progress)
-      if (state.isPlaying && state.currentTrack &&
-          state.currentTrack.id !== currentlyLoadedId && !playLock) {
-        loadAndPlay(state.currentTrack);
-      }
-      // If server says stopped, stop local audio too
-      if (!state.isPlaying && !audio.paused && !playLock) {
-        audio.pause();
+      // Only control audio if THIS device is the active player
+      if (thisDeviceActive) {
+        // Load new track if track changed
+        if (state.isPlaying && state.currentTrack &&
+            state.currentTrack.id !== currentlyLoadedId && !playLock) {
+          loadAndPlay(state.currentTrack);
+        }
+        // If server says stopped, stop local audio too
+        if (!state.isPlaying && !audio.paused && !playLock) {
+          audio.pause();
+        }
       }
     }
     if (msg.type === 'library-updated') {
@@ -1172,7 +1174,10 @@ function renderQueue() {
 
   list.querySelectorAll('.track-item').forEach(function(el) {
     el.addEventListener('click', function() {
-      api('/play', 'POST', { index: parseInt(el.dataset.index) });
+      thisDeviceActive = true;
+      var idx = parseInt(el.dataset.index);
+      var track = state.queue[idx];
+      if (track) playTrackById(track.id);
     });
   });
 }
@@ -1340,7 +1345,8 @@ function stopAudio() {
 }
 
 function playTrackById(trackId) {
-  // Lock: prevent WebSocket handler from interrupting this play
+  // This device takes over playback
+  thisDeviceActive = true;
   playLock = true;
   // Stop current
   audio.pause();
@@ -1411,30 +1417,32 @@ document.getElementById('volumeSlider').addEventListener('input', function(e) {
 
 // ─── Controls ────────────────────────────────────────────────────────────────
 document.getElementById('playPauseBtn').addEventListener('click', function() {
+  thisDeviceActive = true;
   if (!audio.paused) {
-    // Currently playing -> pause
     audio.pause();
     api('/pause', 'POST');
   } else if (currentlyLoadedId != null) {
-    // Paused with a loaded track -> resume
     audio.play().catch(function() {});
     api('/play', 'POST');
   }
 });
 
 document.getElementById('nextBtn').addEventListener('click', function() {
+  thisDeviceActive = true;
   audio.pause();
   audio.currentTime = 0;
   api('/next', 'POST');
 });
 
 document.getElementById('prevBtn').addEventListener('click', function() {
+  thisDeviceActive = true;
   audio.pause();
   audio.currentTime = 0;
   api('/prev', 'POST');
 });
 
 document.getElementById('stopBtn').addEventListener('click', function() {
+  thisDeviceActive = true;
   stopAudio();
   api('/pause', 'POST');
   api('/queue', 'POST', { trackIds: [] });
@@ -1449,6 +1457,7 @@ document.getElementById('clearQueue').addEventListener('click', function() {
 // ─── Play button = Shuffle All + Play (like Windows Media Player) ────────────
 document.getElementById('playAll').addEventListener('click', function() {
   if (tracks.length === 0) return;
+  thisDeviceActive = true;
   var ids = tracks.map(function(t) { return t.id; });
   // Shuffle locally before sending to server (pick random first track)
   for (var i = ids.length - 1; i > 0; i--) {
