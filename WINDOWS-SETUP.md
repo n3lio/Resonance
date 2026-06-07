@@ -36,14 +36,14 @@ choco install mpv
 
 **Si Git est installé** :
 ```bash
-cd C:\Users\Lionel\Projects
-git clone [URL_DU_REPO] Resonance
+cd C:\Users\Lionel\Music
+git clone https://github.com/n3lio/radio-mp3.git Resonance
 cd Resonance
 ```
 
 **Sinon** (transfert manuel) :
 1. Copie le dossier `Resonance` depuis ton Mac via USB/réseau/cloud
-2. Mets-le dans `C:\Users\Lionel\Projects\Resonance\`
+2. Mets-le dans `C:\Users\Lionel\Music\Resonance\`
 
 ### 4️⃣ Configurer le chemin de ta musique
 
@@ -100,7 +100,7 @@ Ouvre ton navigateur → **http://localhost:3000**
 Si t'as installé via Git :
 
 ```bash
-cd C:\Users\Lionel\Projects\Resonance
+cd C:\Users\Lionel\Music\Resonance
 git pull origin main
 ```
 

@@ -12,10 +12,10 @@ Personal music streaming server. Stream your MP3 collection from your PC to any 
 
 2. **Get the latest version:**
    ```bash
-   cd C:\Users\Lionel\Projects
+   cd C:\Users\Lionel\Music\Resonance
    git pull origin main
    ```
-   (If you don't have Git, download the zip from GitHub and extract to `C:\Users\Lionel\Projects\Resonance`)
+   (If you don't have Git, download the zip from GitHub and extract to `C:\Users\Lionel\Music\Resonance`)
 
 3. **Configure your music folder:**
    - Open `config.json`
@@ -48,7 +48,7 @@ Access from other devices: use `http://<your-PC-IP>:3000`
 ## 📦 Manual Start (if shortcut doesn't work)
 
 ```bash
-cd C:\Users\Lionel\Projects\Resonance
+cd C:\Users\Lionel\Music\Resonance
 npm install
 npm start
 ```
