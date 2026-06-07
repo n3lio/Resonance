@@ -37,5 +37,16 @@ jobs:
             dist/*.exe
             dist/*.yml
             dist/*.yaml
+          body: |
+            ## Resonance ${{ github.ref_name }}
+
+            ### Download
+            Download `Resonance-Setup-*.exe` below and run the installer.
+
+            ### What's new
+            See [commit history](https://github.com/n3lio/Resonance/commits/${{ github.ref_name }}) for changes.
+
+            ---
+            *Auto-built from tag `${{ github.ref_name }}`*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
