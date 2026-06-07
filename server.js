@@ -12,21 +12,11 @@ const config = require('./config.json');
 const app = express();
 
 // ─── Security ────────────────────────────────────────────────────────────────
-// Helmet: secure HTTP headers (XSS, clickjacking, MIME sniffing, etc.)
+// Helmet: secure HTTP headers — CSP disabled (private LAN app, not public)
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrcAttr: ["'unsafe-inline'"],  // allow inline event handlers
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
-      mediaSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-    }
-  },
+  contentSecurityPolicy: false,  // disabled: private network, no need for CSP
   crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
 // Rate limiting — generous for normal use, blocks brute-force/scraping
