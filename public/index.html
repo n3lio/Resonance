@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Radio MP3</title>
+  <title>Resonance</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -629,7 +629,7 @@
 
 <header>
   <div class="status-dot"></div>
-  <h1>Radio MP3</h1>
+  <h1>Resonance</h1>
   <div class="header-right">
     <div class="mode-toggle">
       <button class="mode-btn active" data-mode="stream">Stream</button>
@@ -752,7 +752,10 @@
 let tracks = [];
 let allGenres = [];
 let playlists = [];
-let state = { queue: [], currentIndex: 0, isPlaying: false, playMode: 'stream', currentTrack: null };
+// Detect if accessed from localhost → default to PC mode
+const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const defaultMode = isLocalhost ? 'local' : 'stream';
+let state = { queue: [], currentIndex: 0, isPlaying: false, playMode: defaultMode, currentTrack: null };
 const audio = document.getElementById('audio');
 
 const PLACEHOLDER_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
@@ -825,7 +828,8 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ─── Cover Art Helper ────────────────────────────────────────────────────────
 function coverImg(track, size = 40) {
   if (track && track.hasCover) {
-    return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="">`;
+    // Add onerror handler to fallback to placeholder if cover fails to load
+    return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.outerHTML='<div class=\\"${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}\\">${PLACEHOLDER_SVG}</div>'">`;
   }
   return `<div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}">${PLACEHOLDER_SVG}</div>`;
 }
@@ -1177,6 +1181,10 @@ audio.addEventListener('play', () => {
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();
 fetchGenres();
+// Set default mode on server if localhost
+if (isLocalhost) {
+  api('/mode', 'POST', { mode: 'local' });
+}
 </script>
 </body>
 </html>

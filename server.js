@@ -44,7 +44,7 @@ const rescanLimiter = rateLimit({
   message: { error: 'Rescan limited to 3 per 5 minutes.' },
 });
 
-app.use(express.json({ limit: '10kb' }));  // prevent large payload attacks
+app.use(express.json({ limit: '1mb' }));  // allow queue operations with many tracks
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ const server = app.listen(config.port, '0.0.0.0', () => {
   const now = new Date().toLocaleString('fr-FR');
   console.log('');
   console.log('╔══════════════════════════════════════════════════╗');
-  console.log('║           🎵  RADIO MP3 — SERVER UP  🎵          ║');
+  console.log('║           🎵  RESONANCE — SERVER UP  🎵          ║');
   console.log('╠══════════════════════════════════════════════════╣');
   console.log(`║  Started:  ${now.padEnd(36)}║`);
   console.log(`║  Local:    http://localhost:${config.port}                 ║`);

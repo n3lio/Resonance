@@ -1,1 +1,17 @@
+# Dependencies
 node_modules/
+
+# User data (playlists are personal)
+playlists.json
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

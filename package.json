@@ -1,5 +1,5 @@
 {
-  "name": "radio-mp3",
+  "name": "resonance",
   "version": "1.0.0",
   "description": "Personal MP3 player/streamer - LAN + remote access",
   "main": "server.js",
