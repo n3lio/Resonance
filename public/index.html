@@ -97,6 +97,9 @@
       font-weight: 600;
     }
 
+    .server-toggle { display: flex; align-items: center; gap: 4px; margin-right: 8px; }
+    .server-info { font-variant-numeric: tabular-nums; }
+
     /* ─── Tabs ─── */
     .tabs {
       display: flex;
@@ -817,9 +820,13 @@
   <div class="status-dot"></div>
   <h1>Resonance</h1>
   <div class="header-right">
+    <div class="server-toggle" id="serverToggleWrap" style="display:none;">
+      <button class="mode-btn" id="serverToggleBtn" title="Activer le serveur LAN">Serveur</button>
+      <span class="server-info" id="serverInfo" style="display:none; font-size:0.72rem; color:var(--green); margin-left:6px;"></span>
+    </div>
     <div class="mode-toggle">
-      <button class="mode-btn active" data-mode="pc">PC</button>
-      <button class="mode-btn" data-mode="stream">Stream</button>
+      <button class="mode-btn active" data-mode="pc">T&eacute;l&eacute;commande</button>
+      <button class="mode-btn" data-mode="stream">&Eacute;coute ici</button>
     </div>
   </div>
 </header>
@@ -1609,6 +1616,69 @@ audio.addEventListener('play', function() {
   if (!vizInitialized) initViz();
   if (vizVisible && viz) viz.start();
 }, { once: true });
+
+// ─── Electron Integration ───────────────────────────────────────────────────
+if (window.resonance && window.resonance.isElectron) {
+  // Show server toggle
+  var serverWrap = document.getElementById('serverToggleWrap');
+  var serverBtn = document.getElementById('serverToggleBtn');
+  var serverInfoEl = document.getElementById('serverInfo');
+  serverWrap.style.display = 'flex';
+  serverWrap.style.alignItems = 'center';
+
+  // Get initial status
+  window.resonance.getServerStatus().then(function(status) {
+    updateServerUI(status);
+  });
+
+  serverBtn.addEventListener('click', function() {
+    window.resonance.toggleServer().then(function(status) {
+      updateServerUI(status);
+    });
+  });
+
+  function updateServerUI(status) {
+    if (status.running) {
+      serverBtn.classList.add('active');
+      serverBtn.textContent = 'Serveur ON';
+      serverInfoEl.style.display = 'inline';
+      serverInfoEl.textContent = status.ip + ':' + status.port;
+    } else {
+      serverBtn.classList.remove('active');
+      serverBtn.textContent = 'Serveur';
+      serverInfoEl.style.display = 'none';
+      serverInfoEl.textContent = '';
+    }
+  }
+
+  // Listen for server status changes from main process
+  window.resonance.onServerStatusChanged(function(status) {
+    updateServerUI(status);
+  });
+
+  // Update notifications
+  window.resonance.onUpdateAvailable(function(data) {
+    var notif = document.createElement('div');
+    notif.style.cssText = 'position:fixed;top:12px;right:12px;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius);padding:12px 18px;z-index:9999;font-size:0.82rem;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,0.4);';
+    notif.innerHTML = 'Mise a jour disponible: <strong>v' + data.version + '</strong><br><span style="font-size:0.72rem;color:var(--text-muted)">Telechargement en cours...</span>';
+    document.body.appendChild(notif);
+    setTimeout(function() { notif.remove(); }, 8000);
+  });
+
+  window.resonance.onUpdateDownloaded(function(data) {
+    var notif = document.createElement('div');
+    notif.style.cssText = 'position:fixed;top:12px;right:12px;background:var(--surface);border:1px solid var(--green);border-radius:var(--radius);padding:12px 18px;z-index:9999;font-size:0.82rem;color:var(--text);box-shadow:0 8px 32px rgba(0,0,0,0.4);';
+    notif.innerHTML = 'v' + data.version + ' prete ! <br><span style="font-size:0.72rem;color:var(--text-muted)">Redemarrez pour installer.</span>';
+    document.body.appendChild(notif);
+    setTimeout(function() { notif.remove(); }, 10000);
+  });
+
+  // Show version in header
+  window.resonance.getVersion().then(function(ver) {
+    var h1 = document.querySelector('header h1');
+    if (h1) h1.title = 'Resonance v' + ver;
+  });
+}
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();

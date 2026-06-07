@@ -18,3 +18,10 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# Electron build output
+dist/
+out/
+
+# Electron Builder
+release/
