@@ -955,7 +955,7 @@
 
 <audio id="audio" preload="auto"></audio>
 <div id="debugBox" style="display:none;position:fixed;top:0;left:0;right:0;background:rgba(224,85,85,0.95);color:#fff;font-size:11px;padding:8px 12px;z-index:9999;font-family:monospace;max-height:30vh;overflow:auto;"></div>
-<script src="visualizer.js"></script>
+<script src="visualizer.js" onerror="document.getElementById('debugBox').style.display='block';document.getElementById('debugBox').innerHTML+='[WARN] visualizer.js failed to load<br>';window.Visualizer=function(){};Visualizer.prototype={initAudio:function(){},start:function(){},stop:function(){},resize:function(){},setMode:function(){}}"></script>
 <script>
 // Global error catcher — shows errors on screen (for mobile debug)
 window.onerror = function(msg, url, line, col, err) {
@@ -1017,10 +1017,20 @@ connectWS();
 async function api(path, method, body) {
   method = method || 'GET';
   body = body || null;
-  var opts = { method: method, headers: { 'Content-Type': 'application/json' } };
-  if (body) opts.body = JSON.stringify(body);
-  var res = await fetch('/api' + path, opts);
-  return res.json();
+  var url = '/api' + path;
+  var opts = { method: method };
+  if (body) {
+    opts.headers = { 'Content-Type': 'application/json' };
+    opts.body = JSON.stringify(body);
+  }
+  try {
+    var res = await fetch(url, opts);
+    return await res.json();
+  } catch (e) {
+    var box = document.getElementById('debugBox');
+    if (box) { box.style.display = 'block'; box.innerHTML += '[FETCH] ' + method + ' ' + url + ' -> ' + e.message + '<br>'; }
+    throw e;
+  }
 }
 
 async function fetchTracks(query, genre) {
@@ -1036,12 +1046,29 @@ async function fetchTracks(query, genre) {
     renderTracks();
   } catch (e) {
     console.error('[Resonance] fetchTracks failed:', e);
+    // Retry once after 2s (server might still be scanning)
+    setTimeout(function() {
+      api('/tracks').then(function(data) {
+        tracks = data;
+        renderTracks();
+      }).catch(function() {});
+    }, 2000);
   }
 }
 
 async function fetchGenres() {
-  allGenres = await api('/genres');
-  renderGenreFilter();
+  try {
+    allGenres = await api('/genres');
+    renderGenreFilter();
+  } catch (e) {
+    console.error('[Resonance] fetchGenres failed:', e);
+    setTimeout(function() {
+      api('/genres').then(function(data) {
+        allGenres = data;
+        renderGenreFilter();
+      }).catch(function() {});
+    }, 2000);
+  }
 }
 
 async function fetchPlaylists() {
