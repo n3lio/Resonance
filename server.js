@@ -28,12 +28,14 @@ app.use(helmet({
 }));
 
 // Rate limiting — generous for normal use, blocks brute-force/scraping
+// Covers and streams are excluded (they get hammered during normal browsing)
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000,  // 1 minute
-  max: 200,                   // 200 requests per minute per IP
+  max: 600,                   // 600 requests per minute per IP (covers + browsing)
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, slow down.' },
+  skip: (req) => req.path.startsWith('/api/cover/') || req.path.startsWith('/api/stream/'),
 });
 app.use('/api/', apiLimiter);
 

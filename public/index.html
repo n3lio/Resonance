@@ -796,12 +796,15 @@ function connectWS() {
       const oldTrack = state.currentTrack;
       state = msg.data;
       updateUI();
-      // Only load new track if track actually changed AND we're supposed to be playing
+      // Load new track only if:
+      // 1. Server says playing
+      // 2. Track changed (different from what's currently loaded)
+      // 3. We're not already playing it
       if (state.isPlaying && state.currentTrack &&
-          (!oldTrack || oldTrack.id !== state.currentTrack.id)) {
+          state.currentTrack.id !== currentlyLoadedId) {
         loadAndPlay(state.currentTrack);
       }
-      // If server says stopped but we're still playing, stop
+      // If server says stopped, stop local audio too
       if (!state.isPlaying && !audio.paused) {
         audio.pause();
       }
@@ -887,8 +890,8 @@ function renderTracks() {
     el.addEventListener('click', (e) => {
       if (e.target.classList.contains('add-btn')) return;
       const id = parseInt(el.dataset.id);
-      // Play this single track - playTrackNow handles stopping old audio
-      playTrackNow(id);
+      // Play immediately from user gesture (browser requires this)
+      playTrackById(id);
     });
 
     el.querySelector('.add-btn').addEventListener('click', (e) => {
@@ -1075,33 +1078,35 @@ function updateUI() {
 }
 
 // ─── Audio Playback (single source of truth) ────────────────────────────────
-// The ONLY function that touches audio.src. Everything goes through here.
 let currentlyLoadedId = null;
 
 function stopAudio() {
   audio.pause();
   audio.currentTime = 0;
   audio.removeAttribute('src');
-  audio.load(); // force release
+  audio.load();
   currentlyLoadedId = null;
 }
 
-function playTrackNow(trackId) {
-  // Stop current audio FIRST
-  stopAudio();
-  // Tell server to set queue and play
+function playTrackById(trackId) {
+  // Stop current, load new, play immediately (in user gesture context)
+  audio.pause();
+  audio.currentTime = 0;
+  currentlyLoadedId = trackId;
+  audio.src = `/api/stream/${trackId}`;
+  audio.play().catch(err => console.warn('Play blocked:', err.message));
+  // Then tell server (for state sync with other devices)
   api('/queue', 'POST', { trackIds: [trackId] })
     .then(() => api('/play', 'POST', { index: 0 }));
 }
 
 function loadAndPlay(track) {
   if (!track) return;
-  // If already loaded and playing this track, do nothing
+  // Already playing this track? Do nothing.
   if (currentlyLoadedId === track.id && !audio.paused) return;
-  // Stop whatever is playing
+  // Load and play
   audio.pause();
   audio.currentTime = 0;
-  // Load new track
   currentlyLoadedId = track.id;
   audio.src = `/api/stream/${track.id}`;
   audio.play().catch(err => console.warn('Play blocked:', err.message));
@@ -1133,24 +1138,28 @@ document.getElementById('volumeSlider').addEventListener('input', (e) => {
 
 // ─── Controls ────────────────────────────────────────────────────────────────
 document.getElementById('playPauseBtn').addEventListener('click', () => {
-  if (state.isPlaying) {
+  if (!audio.paused) {
+    // Currently playing -> pause
     audio.pause();
     api('/pause', 'POST');
-  } else {
-    if (audio.src && currentlyLoadedId != null) {
-      audio.play().catch(() => {});
-    }
+  } else if (currentlyLoadedId != null) {
+    // Paused with a loaded track -> resume
+    audio.play().catch(() => {});
     api('/play', 'POST');
   }
 });
 
 document.getElementById('nextBtn').addEventListener('click', () => {
-  stopAudio();
+  audio.pause();
+  audio.currentTime = 0;
+  // Server will advance index, WebSocket will trigger loadAndPlay
   api('/next', 'POST');
 });
 
 document.getElementById('prevBtn').addEventListener('click', () => {
-  stopAudio();
+  audio.pause();
+  audio.currentTime = 0;
+  // Server will go back, WebSocket will trigger loadAndPlay
   api('/prev', 'POST');
 });
 
@@ -1167,17 +1176,26 @@ document.getElementById('clearQueue').addEventListener('click', () => {
 });
 
 document.getElementById('playAll').addEventListener('click', () => {
-  stopAudio();
+  // Play first track immediately, then set queue on server
+  if (tracks.length === 0) return;
   const ids = tracks.map(t => t.id);
+  audio.pause();
+  audio.currentTime = 0;
+  currentlyLoadedId = ids[0];
+  audio.src = `/api/stream/${ids[0]}`;
+  audio.play().catch(() => {});
   api('/queue', 'POST', { trackIds: ids }).then(() => api('/play', 'POST', { index: 0 }));
 });
 
 document.getElementById('shuffleAll').addEventListener('click', () => {
-  stopAudio();
+  // Shuffle on server first, then play whatever lands at index 0
+  if (tracks.length === 0) return;
   const ids = tracks.map(t => t.id);
   api('/queue', 'POST', { trackIds: ids })
     .then(() => api('/shuffle', 'POST'))
     .then(() => api('/play', 'POST', { index: 0 }));
+  // Can't play immediately here since we don't know what shuffle picks
+  // WebSocket will trigger loadAndPlay when state comes back
 });
 
 // Mode toggle
