@@ -954,7 +954,21 @@
 </div>
 
 <audio id="audio" preload="auto"></audio>
+<div id="debugBox" style="display:none;position:fixed;top:0;left:0;right:0;background:rgba(224,85,85,0.95);color:#fff;font-size:11px;padding:8px 12px;z-index:9999;font-family:monospace;max-height:30vh;overflow:auto;"></div>
 <script src="visualizer.js"></script>
+<script>
+// Global error catcher — shows errors on screen (for mobile debug)
+window.onerror = function(msg, url, line, col, err) {
+  var box = document.getElementById('debugBox');
+  box.style.display = 'block';
+  box.innerHTML += '[ERR] ' + msg + ' (line ' + line + ')<br>';
+};
+window.addEventListener('unhandledrejection', function(e) {
+  var box = document.getElementById('debugBox');
+  box.style.display = 'block';
+  box.innerHTML += '[PROMISE] ' + (e.reason ? e.reason.message || e.reason : 'unknown') + '<br>';
+});
+</script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
 let tracks = [];
