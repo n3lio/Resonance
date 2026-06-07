@@ -159,6 +159,10 @@
       cursor: pointer;
       outline: none;
       transition: border-color 0.2s;
+      max-width: 180px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
     }
 
     .genre-select:focus { border-color: var(--accent); }
@@ -641,6 +645,9 @@
 
     .player-controls #stopBtn:hover { color: var(--red); background: rgba(224, 85, 85, 0.1); }
 
+    .player-controls .shuffle-active { color: var(--accent); }
+    .player-controls .shuffle-active:hover { background: var(--accent-subtle); }
+
     .progress-container { flex: 1; display: flex; align-items: center; gap: 10px; }
 
     .progress-bar {
@@ -743,50 +750,59 @@
       display: block;
     }
 
-    .viz-controls {
+    .viz-gear {
       position: absolute;
-      top: 8px;
+      top: 10px;
       right: 12px;
-      display: flex;
-      gap: 4px;
       z-index: 10;
     }
 
-    .viz-btn {
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
+    .viz-gear-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.15);
       background: rgba(0,0,0,0.6);
       backdrop-filter: blur(4px);
       color: var(--text-dim);
       cursor: pointer;
-      font-size: 0.65rem;
-      font-family: var(--font);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       transition: all 0.2s;
     }
 
-    .viz-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
-    .viz-btn.active { color: var(--accent); border-color: var(--accent); background: var(--accent-subtle); }
+    .viz-gear-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
 
-    .viz-toggle {
+    .viz-menu {
+      display: none;
       position: absolute;
-      top: 8px;
-      left: 12px;
-      padding: 4px 10px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,0.1);
-      background: rgba(0,0,0,0.6);
-      backdrop-filter: blur(4px);
-      color: var(--text-dim);
-      cursor: pointer;
-      font-size: 0.65rem;
-      font-family: var(--font);
-      z-index: 10;
+      top: 36px;
+      right: 0;
+      background: rgba(15, 14, 13, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px;
+      min-width: 140px;
+      z-index: 20;
     }
 
-    .viz-toggle:hover { color: var(--text); }
+    .viz-menu.open { display: block; }
+
+    .viz-menu-item {
+      padding: 8px 12px;
+      font-size: 0.78rem;
+      font-family: var(--font);
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: all 0.15s;
+    }
+
+    .viz-menu-item:hover { background: var(--surface-hover); color: var(--text); }
+    .viz-menu-item.active { color: var(--accent); }
+    .viz-menu-item.close-item { color: var(--red); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 10px; }
 
     /* ─── Scrollbar ─── */
     ::-webkit-scrollbar { width: 6px; }
@@ -825,14 +841,19 @@
 </div>
 
 <!-- Visualizer -->
-<div class="viz-container" id="vizContainer">
-  <button class="viz-toggle" id="vizClose" title="Masquer">Fermer</button>
-  <div class="viz-controls">
-    <button class="viz-btn active" data-viz="bars">Bars</button>
-    <button class="viz-btn" data-viz="circular">Circular</button>
-    <button class="viz-btn" data-viz="wave">Wave</button>
-    <button class="viz-btn" data-viz="particles">Particles</button>
-    <button class="viz-btn" data-viz="starfield">Starfield</button>
+<div class="viz-container active" id="vizContainer">
+  <div class="viz-gear">
+    <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15 1.65 1.65 0 003 14.08V14a2 2 0 014 0v.09a1.65 1.65 0 001 1.51zM21 12h.09m-18.18 0H3m16.4-6.6l.06-.06M4.93 4.93l-.06-.06M12 3v-.09"/></svg>
+    </button>
+    <div class="viz-menu" id="vizMenu">
+      <div class="viz-menu-item active" data-viz="starfield">Starfield</div>
+      <div class="viz-menu-item" data-viz="bars">Bars</div>
+      <div class="viz-menu-item" data-viz="circular">Circular</div>
+      <div class="viz-menu-item" data-viz="wave">Wave</div>
+      <div class="viz-menu-item" data-viz="particles">Particles</div>
+      <div class="viz-menu-item close-item" id="vizCloseItem">Fermer le visualizer</div>
+    </div>
   </div>
   <canvas id="vizCanvas"></canvas>
 </div>
@@ -844,8 +865,7 @@
     <select class="genre-select" id="genreFilter">
       <option value="">Tous les genres</option>
     </select>
-    <button class="toolbar-btn" id="playAll">Play all</button>
-    <button class="toolbar-btn" id="shuffleAll">Shuffle</button>
+    <button class="toolbar-btn primary" id="playAll">Play</button>
   </div>
   <div class="track-count" id="trackCount"></div>
   <div class="track-list" id="trackList"></div>
@@ -897,6 +917,9 @@
     </button>
     <button id="nextBtn" title="Next">
       <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+    </button>
+    <button id="shuffleBtn" title="Shuffle" class="shuffle-active">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
     </button>
   </div>
   <div class="progress-container">
@@ -1384,12 +1407,17 @@ document.getElementById('clearQueue').addEventListener('click', function() {
   api('/queue', 'POST', { trackIds: [] });
 });
 
-// ─── Play All (fixed: plays first track directly from user gesture) ─────────
+// ─── Play button = Shuffle All + Play (like Windows Media Player) ────────────
 document.getElementById('playAll').addEventListener('click', function() {
   if (tracks.length === 0) return;
   var ids = tracks.map(function(t) { return t.id; });
+  // Shuffle locally before sending to server (pick random first track)
+  for (var i = ids.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = ids[i]; ids[i] = ids[j]; ids[j] = tmp;
+  }
   var firstId = ids[0];
-  // Play first track immediately (user gesture context)
+  // Play first shuffled track immediately (user gesture context)
   playLock = true;
   audio.pause();
   audio.currentTime = 0;
@@ -1401,25 +1429,19 @@ document.getElementById('playAll').addEventListener('click', function() {
     audio.play().then(function() {
       playLock = false;
     }).catch(function(err) {
-      console.warn('[Resonance] Play All error:', err.message);
+      console.warn('[Resonance] Play error:', err.message);
       playLock = false;
     });
   });
-  // Set queue on server
+  // Set shuffled queue on server
   api('/queue', 'POST', { trackIds: ids }).then(function() {
     api('/play', 'POST', { index: 0 });
   });
 });
 
-// ─── Shuffle All (fixed: sets queue, shuffles, then plays first from WS) ────
-document.getElementById('shuffleAll').addEventListener('click', function() {
-  if (tracks.length === 0) return;
-  var ids = tracks.map(function(t) { return t.id; });
-  // Set queue, shuffle on server, then play index 0
-  // WebSocket will deliver the shuffled state and trigger loadAndPlay
-  api('/queue', 'POST', { trackIds: ids })
-    .then(function() { return api('/shuffle', 'POST'); })
-    .then(function() { return api('/play', 'POST', { index: 0 }); });
+// Shuffle button in player bar — reshuffle current queue
+document.getElementById('shuffleBtn').addEventListener('click', function() {
+  api('/shuffle', 'POST');
 });
 
 // Mode toggle
@@ -1463,13 +1485,16 @@ var vizContainer = document.getElementById('vizContainer');
 var vizCanvas = document.getElementById('vizCanvas');
 var viz = null;
 var vizInitialized = false;
-var vizVisible = false;
+var vizVisible = true; // Active by default
+var vizMode = 'starfield'; // Default mode
 
 function initViz() {
   if (vizInitialized) return;
   viz = new Visualizer(vizCanvas, audio);
+  viz.setMode(vizMode);
   viz.initAudio();
   vizInitialized = true;
+  viz.start();
 }
 
 function toggleViz() {
@@ -1484,20 +1509,37 @@ function toggleViz() {
   }
 }
 
-// Toggle button in player bar
-document.getElementById('vizToggleBtn').addEventListener('click', toggleViz);
+// Gear menu toggle
+var vizMenu = document.getElementById('vizMenu');
+document.getElementById('vizGearBtn').addEventListener('click', function(e) {
+  e.stopPropagation();
+  vizMenu.classList.toggle('open');
+});
 
-// Close button inside viz
-document.getElementById('vizClose').addEventListener('click', toggleViz);
+// Close menu on click outside
+document.addEventListener('click', function() { vizMenu.classList.remove('open'); });
 
-// Mode selector buttons
-document.querySelectorAll('.viz-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    document.querySelectorAll('.viz-btn').forEach(function(b) { b.classList.remove('active'); });
-    btn.classList.add('active');
-    if (viz) viz.setMode(btn.dataset.viz);
+// Viz mode items
+document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.stopPropagation();
+    vizMode = item.dataset.viz;
+    if (viz) viz.setMode(vizMode);
+    document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i) { i.classList.remove('active'); });
+    item.classList.add('active');
+    vizMenu.classList.remove('open');
   });
 });
+
+// Close visualizer from menu
+document.getElementById('vizCloseItem').addEventListener('click', function(e) {
+  e.stopPropagation();
+  vizMenu.classList.remove('open');
+  toggleViz();
+});
+
+// Toggle button in player bar (reopen)
+document.getElementById('vizToggleBtn').addEventListener('click', toggleViz);
 
 // Auto-init visualizer on first play (needs user gesture for AudioContext)
 audio.addEventListener('play', function() {
