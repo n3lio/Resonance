@@ -1,6 +1,9 @@
 # Dependencies
 node_modules/
 
+# Cover art cache (generated on scan)
+__covers/
+
 # User data (playlists are personal)
 playlists.json
 

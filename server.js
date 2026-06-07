@@ -19,7 +19,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'"],
       scriptSrcAttr: ["'unsafe-inline'"],  // allow inline event handlers
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:"],
       mediaSrc: ["'self'"],
       connectSrc: ["'self'", "ws:", "wss:"],
@@ -76,6 +77,12 @@ function savePlaylists() {
   fs.writeFileSync(PLAYLISTS_FILE, JSON.stringify(playlists, null, 2));
 }
 
+// ─── Cover Cache ────────────────────────────────────────────────────────────
+const COVERS_DIR = path.join(__dirname, '__covers');
+if (!fs.existsSync(COVERS_DIR)) {
+  fs.mkdirSync(COVERS_DIR, { recursive: true });
+}
+
 // ─── Library Scanner ─────────────────────────────────────────────────────────
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.flac', '.ogg', '.wav', '.aac']);
 const EXCLUDE_FOLDERS = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
@@ -84,6 +91,14 @@ async function scanFolders() {
   console.log('🎵 Scanning music folders...');
   library = [];
   genres = new Set();
+
+  // Clear cover cache before rescan
+  try {
+    const existing = fs.readdirSync(COVERS_DIR);
+    for (const file of existing) {
+      fs.unlinkSync(path.join(COVERS_DIR, file));
+    }
+  } catch (e) { /* ignore */ }
 
   for (const folder of config.musicFolders) {
     const resolved = path.resolve(folder);
@@ -120,11 +135,30 @@ async function scanDirectory(dir) {
         const genre = metadata.common.genre ? metadata.common.genre[0] : null;
         if (genre) genres.add(genre);
 
-        // Check if cover art exists
-        const hasCover = metadata.common.picture && metadata.common.picture.length > 0;
+        // Check if cover art exists and cache it
+        const picture = metadata.common.picture && metadata.common.picture[0];
+        const hasCover = !!picture;
+        const trackId = library.length;
+
+        if (hasCover) {
+          // Determine extension from MIME type
+          let ext = '.jpg';
+          if (picture.format) {
+            if (picture.format.includes('png')) ext = '.png';
+            else if (picture.format.includes('webp')) ext = '.webp';
+            else if (picture.format.includes('gif')) ext = '.gif';
+          }
+          const coverPath = path.join(COVERS_DIR, `${trackId}${ext}`);
+          try {
+            fs.writeFileSync(coverPath, picture.data);
+          } catch (writeErr) {
+            // Non-fatal: cover just won't be served
+            console.warn(`⚠️  Could not cache cover for track ${trackId}:`, writeErr.message);
+          }
+        }
 
         library.push({
-          id: library.length,
+          id: trackId,
           path: fullPath,
           filename: entry.name,
           title: metadata.common.title || entry.name.replace(/\.[^/.]+$/, ''),
@@ -258,23 +292,24 @@ app.get('/api/state', (req, res) => {
   res.json(getState());
 });
 
-// Get cover art for a track
-app.get('/api/cover/:id', async (req, res) => {
+// Get cover art for a track (served from cache)
+app.get('/api/cover/:id', (req, res) => {
   const track = getTrackById(req.params.id);
-  if (!track) return res.status(404).json({ error: 'Track not found' });
+  if (!track || !track.hasCover) return res.status(404).json({ error: 'No cover art' });
 
-  try {
-    const metadata = await parseFile(track.path);
-    const picture = metadata.common.picture && metadata.common.picture[0];
-
-    if (picture) {
+  // Look for cached cover file (try common extensions)
+  const extensions = ['.jpg', '.png', '.webp', '.gif'];
+  for (const ext of extensions) {
+    const coverPath = path.join(COVERS_DIR, `${track.id}${ext}`);
+    if (fs.existsSync(coverPath)) {
+      const mimeTypes = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
       res.set({
-        'Content-Type': picture.format,
-        'Cache-Control': 'public, max-age=86400',  // cache 24h
+        'Content-Type': mimeTypes[ext] || 'image/jpeg',
+        'Cache-Control': 'public, max-age=604800',  // cache 7 days
       });
-      return res.send(picture.data);
+      return res.sendFile(coverPath);
     }
-  } catch (e) { /* fall through to 404 */ }
+  }
 
   res.status(404).json({ error: 'No cover art' });
 });
