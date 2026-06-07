@@ -772,7 +772,7 @@
   </div>
 </div>
 
-<audio id="audio" preload="auto" crossorigin="anonymous"></audio>
+<audio id="audio" preload="auto"></audio>
 <script src="visualizer.js"></script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -1094,11 +1094,24 @@ function playTrackById(trackId) {
   audio.currentTime = 0;
   currentlyLoadedId = trackId;
   audio.src = `/api/stream/${trackId}`;
-  audio.play().catch(err => console.warn('Play blocked:', err.message));
+  const playPromise = audio.play();
+  if (playPromise) {
+    playPromise.then(() => {
+      console.log('[Resonance] Playing track', trackId);
+    }).catch(err => {
+      console.error('[Resonance] Play FAILED:', err.name, err.message);
+    });
+  }
   // Then tell server (for state sync with other devices)
   api('/queue', 'POST', { trackIds: [trackId] })
     .then(() => api('/play', 'POST', { index: 0 }));
 }
+
+// Debug: log audio errors
+audio.addEventListener('error', () => {
+  const e = audio.error;
+  console.error('[Resonance] Audio error:', e ? `code=${e.code} msg=${e.message}` : 'unknown');
+});
 
 function loadAndPlay(track) {
   if (!track) return;

@@ -279,6 +279,15 @@ app.get('/api/cover/:id', async (req, res) => {
 });
 
 // Stream a track
+const MIME_TYPES = {
+  '.mp3': 'audio/mpeg',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.aac': 'audio/aac',
+};
+
 app.get('/api/stream/:id', (req, res) => {
   const track = getTrackById(req.params.id);
   if (!track) return res.status(404).json({ error: 'Track not found' });
@@ -291,6 +300,8 @@ app.get('/api/stream/:id', (req, res) => {
     return res.status(404).json({ error: 'File not found on disk' });
   }
 
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = MIME_TYPES[ext] || 'audio/mpeg';
   const range = req.headers.range;
 
   if (range) {
@@ -307,13 +318,13 @@ app.get('/api/stream/:id', (req, res) => {
       'Content-Range': `bytes ${start}-${end}/${stat.size}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunkSize,
-      'Content-Type': 'audio/mpeg',
+      'Content-Type': contentType,
     });
     fs.createReadStream(filePath, { start, end }).pipe(res);
   } else {
     res.writeHead(200, {
       'Content-Length': stat.size,
-      'Content-Type': 'audio/mpeg',
+      'Content-Type': contentType,
       'Accept-Ranges': 'bytes',
     });
     fs.createReadStream(filePath).pipe(res);
