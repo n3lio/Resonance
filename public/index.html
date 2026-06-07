@@ -994,18 +994,11 @@ function connectWS() {
     const msg = JSON.parse(event.data);
     if (msg.type === 'state') {
       state = msg.data;
-      updateUI();
-      // In stream mode: this device plays its own audio (react to state)
-      if (deviceMode === 'stream' && !playLock) {
-        if (state.isPlaying && state.currentTrack &&
-            state.currentTrack.id !== currentlyLoadedId) {
-          loadAndPlay(state.currentTrack);
-        }
-        if (!state.isPlaying && !audio.paused) {
-          audio.pause();
-        }
+      // In PC mode: update UI to reflect server state
+      // In Stream mode: ignore server state (we're independent)
+      if (deviceMode === 'pc') {
+        updateUI();
       }
-      // In PC mode: no local audio, just UI sync (done by updateUI above)
     }
     if (msg.type === 'library-updated') {
       fetchTracks();
@@ -1333,12 +1326,13 @@ function updateUI() {
   });
 }
 
-// ─── Audio Playback (single source of truth) ────────────────────────────────
+// ─── Audio Playback ─────────────────────────────────────────────────────────
 var currentlyLoadedId = null;
-var playLock = false; // prevents WebSocket from interrupting user-initiated play
+// Local queue for stream mode (independent of server)
+var localQueue = [];
+var localIndex = 0;
 
 function stopAudio() {
-  playLock = false;
   audio.pause();
   audio.currentTime = 0;
   audio.removeAttribute('src');
@@ -1346,54 +1340,32 @@ function stopAudio() {
   currentlyLoadedId = null;
 }
 
-function playTrackById(trackId) {
-  if (deviceMode === 'stream') {
-    // Stream mode: play audio locally on this device
-    playLock = true;
-    audio.pause();
-    audio.currentTime = 0;
-    currentlyLoadedId = trackId;
-    audio.src = '/api/stream/' + trackId;
-    audio.load();
-    audio.addEventListener('canplay', function onCanPlay() {
-      audio.removeEventListener('canplay', onCanPlay);
-      audio.play().then(function() {
-        playLock = false;
-      }).catch(function(err) {
-        console.warn('[Resonance] Play error:', err.message);
-        playLock = false;
-      });
-    });
-    // Also tell server (so other devices see what's playing)
-    api('/queue', 'POST', { trackIds: [trackId] })
-      .then(function() { return api('/play', 'POST', { index: 0 }); });
-  } else {
-    // PC mode: just tell server to play (no local audio)
-    api('/queue', 'POST', { trackIds: [trackId] })
-      .then(function() { return api('/play', 'POST', { index: 0 }); });
-  }
-}
-
-function loadAndPlay(track) {
-  if (!track) return;
-  // If user just clicked play, don't interfere
-  if (playLock) return;
-  // Already playing this track? Do nothing.
-  if (currentlyLoadedId === track.id && !audio.paused) return;
-  // If same track is loaded (just paused), resume
-  if (currentlyLoadedId === track.id && audio.paused) {
-    audio.play().catch(function() {});
-    return;
-  }
-  // Load and play new track
+function playAudioSrc(trackId) {
+  // Actually play audio on this device
   audio.pause();
-  currentlyLoadedId = track.id;
-  audio.src = '/api/stream/' + track.id;
+  audio.currentTime = 0;
+  currentlyLoadedId = trackId;
+  audio.src = '/api/stream/' + trackId;
   audio.load();
   audio.addEventListener('canplay', function onCanPlay() {
     audio.removeEventListener('canplay', onCanPlay);
-    audio.play().catch(function() {});
+    audio.play().catch(function(err) {
+      console.warn('[Resonance] Play error:', err.message);
+    });
   });
+}
+
+function playTrackById(trackId) {
+  if (deviceMode === 'stream') {
+    // STREAM MODE: play locally, do NOT touch server
+    localQueue = [trackId];
+    localIndex = 0;
+    playAudioSrc(trackId);
+  } else {
+    // PC MODE: tell server, no local audio
+    api('/queue', 'POST', { trackIds: [trackId] })
+      .then(function() { return api('/play', 'POST', { index: 0 }); });
+  }
 }
 
 audio.addEventListener('timeupdate', function() {
@@ -1404,17 +1376,21 @@ audio.addEventListener('timeupdate', function() {
 });
 
 audio.addEventListener('ended', function() {
-  // Track finished -> ask server for next (only relevant in stream mode)
   if (deviceMode === 'stream') {
-    api('/next', 'POST');
+    // Auto-next in local queue
+    if (localIndex < localQueue.length - 1) {
+      localIndex++;
+      playAudioSrc(localQueue[localIndex]);
+    }
   }
 });
 
 document.getElementById('progressBar').addEventListener('click', function(e) {
-  if (!audio.duration) return;
-  var rect = e.currentTarget.getBoundingClientRect();
-  var pct = (e.clientX - rect.left) / rect.width;
-  audio.currentTime = pct * audio.duration;
+  if (deviceMode === 'stream' && audio.duration) {
+    var rect = e.currentTarget.getBoundingClientRect();
+    var pct = (e.clientX - rect.left) / rect.width;
+    audio.currentTime = pct * audio.duration;
+  }
 });
 
 // Volume
@@ -1425,87 +1401,95 @@ document.getElementById('volumeSlider').addEventListener('input', function(e) {
 // ─── Controls ────────────────────────────────────────────────────────────────
 document.getElementById('playPauseBtn').addEventListener('click', function() {
   if (deviceMode === 'stream') {
-    // Stream: control local audio + sync server
     if (!audio.paused) {
       audio.pause();
-      api('/pause', 'POST');
     } else if (currentlyLoadedId != null) {
       audio.play().catch(function() {});
-      api('/play', 'POST');
     }
   } else {
-    // PC mode: just tell server
-    if (state.isPlaying) {
-      api('/pause', 'POST');
-    } else {
-      api('/play', 'POST');
-    }
+    // PC mode: tell server
+    if (state.isPlaying) { api('/pause', 'POST'); }
+    else { api('/play', 'POST'); }
   }
 });
 
 document.getElementById('nextBtn').addEventListener('click', function() {
   if (deviceMode === 'stream') {
-    audio.pause();
-    audio.currentTime = 0;
+    if (localIndex < localQueue.length - 1) {
+      localIndex++;
+      playAudioSrc(localQueue[localIndex]);
+    }
+  } else {
+    api('/next', 'POST');
   }
-  api('/next', 'POST');
 });
 
 document.getElementById('prevBtn').addEventListener('click', function() {
   if (deviceMode === 'stream') {
-    audio.pause();
-    audio.currentTime = 0;
+    if (localIndex > 0) {
+      localIndex--;
+      playAudioSrc(localQueue[localIndex]);
+    }
+  } else {
+    api('/prev', 'POST');
   }
-  api('/prev', 'POST');
 });
 
 document.getElementById('stopBtn').addEventListener('click', function() {
   if (deviceMode === 'stream') {
     stopAudio();
+    localQueue = [];
+    localIndex = 0;
+  } else {
+    api('/pause', 'POST');
+    api('/queue', 'POST', { trackIds: [] });
   }
-  api('/pause', 'POST');
-  api('/queue', 'POST', { trackIds: [] });
 });
 
-document.getElementById('shuffleQueue').addEventListener('click', function() { api('/shuffle', 'POST'); });
+document.getElementById('shuffleQueue').addEventListener('click', function() {
+  if (deviceMode === 'pc') { api('/shuffle', 'POST'); }
+});
 document.getElementById('clearQueue').addEventListener('click', function() {
-  stopAudio();
-  api('/queue', 'POST', { trackIds: [] });
+  if (deviceMode === 'stream') { stopAudio(); localQueue = []; localIndex = 0; }
+  else { api('/queue', 'POST', { trackIds: [] }); }
 });
 
-// ─── Play button = Shuffle All + Play (like Windows Media Player) ────────────
+// ─── Play button = Shuffle All + Play ───────────────────────────────────────
 document.getElementById('playAll').addEventListener('click', function() {
   if (tracks.length === 0) return;
   var ids = tracks.map(function(t) { return t.id; });
-  // Shuffle locally
+  // Shuffle
   for (var i = ids.length - 1; i > 0; i--) {
     var j = Math.floor(Math.random() * (i + 1));
     var tmp = ids[i]; ids[i] = ids[j]; ids[j] = tmp;
   }
-  var firstId = ids[0];
 
   if (deviceMode === 'stream') {
-    // Stream: play locally
-    playLock = true;
-    audio.pause();
-    audio.currentTime = 0;
-    currentlyLoadedId = firstId;
-    audio.src = '/api/stream/' + firstId;
-    audio.load();
-    audio.addEventListener('canplay', function onCanPlay() {
-      audio.removeEventListener('canplay', onCanPlay);
-      audio.play().then(function() { playLock = false; }).catch(function() { playLock = false; });
+    // Stream: local queue, local play, NO server
+    localQueue = ids;
+    localIndex = 0;
+    playAudioSrc(ids[0]);
+  } else {
+    // PC: tell server
+    api('/queue', 'POST', { trackIds: ids }).then(function() {
+      api('/play', 'POST', { index: 0 });
     });
   }
-  // Tell server (both modes)
-  api('/queue', 'POST', { trackIds: ids }).then(function() {
-    api('/play', 'POST', { index: 0 });
-  });
 });
 
-// Shuffle button in player bar — reshuffle current queue
+// Shuffle button in player bar
 document.getElementById('shuffleBtn').addEventListener('click', function() {
-  api('/shuffle', 'POST');
+  if (deviceMode === 'stream') {
+    // Reshuffle local queue from current position
+    var remaining = localQueue.slice(localIndex + 1);
+    for (var i = remaining.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = remaining[i]; remaining[i] = remaining[j]; remaining[j] = tmp;
+    }
+    localQueue = localQueue.slice(0, localIndex + 1).concat(remaining);
+  } else {
+    api('/shuffle', 'POST');
+  }
 });
 
 // Mode toggle (PC = remote/telecommande, Stream = local playback)
@@ -1516,12 +1500,12 @@ document.querySelectorAll('.mode-btn').forEach(function(btn) {
       b.classList.toggle('active', b.dataset.mode === deviceMode);
     });
     if (deviceMode === 'pc') {
-      // Switching to PC mode: stop local audio (server handles playback)
-      audio.pause();
-      audio.currentTime = 0;
-      currentlyLoadedId = null;
+      // Switching to PC mode: stop local audio, resync with server
+      stopAudio();
+      localQueue = [];
+      localIndex = 0;
+      updateUI(); // Show server state
     }
-    // No server call needed — deviceMode is purely client-side
   });
 });
 
