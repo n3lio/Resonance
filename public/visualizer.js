@@ -68,6 +68,7 @@ class Visualizer {
   setMode(mode) {
     this.mode = mode;
     if (mode === 'starfield') this.initStars();
+    if (mode === 'retrowave') this.retroOffset = 0;
   }
 
   clear() {
@@ -93,6 +94,7 @@ class Visualizer {
       case 'circular': this.drawCircular(); break;
       case 'wave': this.drawWave(); break;
       case 'starfield': this.drawStarfield(); break;
+      case 'retrowave': this.drawRetrowave(); break;
     }
   }
 
@@ -312,6 +314,139 @@ class Visualizer {
       ctx.stroke();
     }
     ctx.shadowBlur = 0;
+  }
+  // ─── MODE: Retrowave / Synthwave Road ──────────────────────────────────────
+  drawRetrowave() {
+    const { ctx, w, h, freqArray } = this;
+
+    if (this.retroOffset === undefined) this.retroOffset = 0;
+
+    const bass = (freqArray[0] + freqArray[1] + freqArray[2] + freqArray[3]) / 4 / 255;
+    const mid = (freqArray[8] + freqArray[9] + freqArray[10] + freqArray[11]) / 4 / 255;
+    const speed = 2 + bass * 6;
+    this.retroOffset = (this.retroOffset + speed) % 60;
+
+    // Sky gradient (dark purple to deep blue)
+    const horizon = h * 0.5;
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, horizon);
+    skyGrad.addColorStop(0, '#0a001a');
+    skyGrad.addColorStop(0.6, '#1a0033');
+    skyGrad.addColorStop(1, '#330055');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, horizon);
+
+    // Sun (pulsing with bass)
+    const sunY = horizon - 20;
+    const sunRadius = 30 + bass * 15;
+    const sunGrad = ctx.createRadialGradient(w / 2, sunY, 0, w / 2, sunY, sunRadius);
+    sunGrad.addColorStop(0, 'rgba(255, 80, 180, 1)');
+    sunGrad.addColorStop(0.4, 'rgba(255, 50, 100, 0.9)');
+    sunGrad.addColorStop(0.7, 'rgba(200, 0, 80, 0.5)');
+    sunGrad.addColorStop(1, 'rgba(100, 0, 60, 0)');
+    ctx.fillStyle = sunGrad;
+    ctx.fillRect(w / 2 - sunRadius * 2, sunY - sunRadius * 2, sunRadius * 4, sunRadius * 2.5);
+
+    // Sun horizontal lines (striped retro look)
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(w / 2 - sunRadius, sunY - sunRadius, sunRadius * 2, sunRadius);
+    ctx.clip();
+    for (let i = 0; i < 8; i++) {
+      const lineY = sunY - sunRadius + i * (sunRadius / 4);
+      const lineH = 2 + i * 0.8;
+      ctx.fillStyle = '#0a001a';
+      ctx.fillRect(w / 2 - sunRadius, lineY, sunRadius * 2, lineH);
+    }
+    ctx.restore();
+
+    // Ground (dark grid floor)
+    const groundGrad = ctx.createLinearGradient(0, horizon, 0, h);
+    groundGrad.addColorStop(0, '#1a0033');
+    groundGrad.addColorStop(1, '#0a001a');
+    ctx.fillStyle = groundGrad;
+    ctx.fillRect(0, horizon, w, h - horizon);
+
+    // Perspective grid - horizontal lines
+    const lineCount = 14;
+    for (let i = 0; i < lineCount; i++) {
+      // Exponential spacing for perspective
+      const t = (i + this.retroOffset / 60) / lineCount;
+      const y = horizon + Math.pow(t, 1.8) * (h - horizon);
+      if (y > h) continue;
+
+      const alpha = 0.15 + t * 0.4;
+      const pulse = 1 + mid * 0.3;
+
+      ctx.strokeStyle = `rgba(180, 50, 255, ${alpha * pulse})`;
+      ctx.lineWidth = 1 + t * 1.5;
+      ctx.shadowColor = 'rgba(180, 50, 255, 0.3)';
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    // Perspective grid - vertical lines (converging to horizon center)
+    const vLines = 16;
+    for (let i = -vLines / 2; i <= vLines / 2; i++) {
+      const topX = w / 2;
+      const bottomX = w / 2 + (i / (vLines / 2)) * w * 0.9;
+
+      const alpha = 0.1 + Math.abs(i / (vLines / 2)) * 0.2;
+      ctx.strokeStyle = `rgba(100, 200, 255, ${alpha})`;
+      ctx.lineWidth = 1;
+      ctx.shadowColor = 'rgba(100, 200, 255, 0.2)';
+      ctx.shadowBlur = 3;
+      ctx.beginPath();
+      ctx.moveTo(topX, horizon);
+      ctx.lineTo(bottomX, h);
+      ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+
+    // Side mountains/buildings silhouette (reacts to bass)
+    ctx.fillStyle = '#0a001a';
+    ctx.beginPath();
+    ctx.moveTo(0, horizon);
+    const bldgCount = 12;
+    for (let i = 0; i <= bldgCount; i++) {
+      const x = (i / bldgCount) * w * 0.3;
+      const bh = 10 + (freqArray[i * 2] / 255) * 40;
+      ctx.lineTo(x, horizon - bh);
+      ctx.lineTo(x + w * 0.3 / bldgCount * 0.7, horizon - bh);
+    }
+    ctx.lineTo(w * 0.3, horizon);
+    ctx.fill();
+
+    // Right side buildings
+    ctx.beginPath();
+    ctx.moveTo(w, horizon);
+    for (let i = 0; i <= bldgCount; i++) {
+      const x = w - (i / bldgCount) * w * 0.3;
+      const bh = 10 + (freqArray[i * 2 + 1] / 255) * 40;
+      ctx.lineTo(x, horizon - bh);
+      ctx.lineTo(x - w * 0.3 / bldgCount * 0.7, horizon - bh);
+    }
+    ctx.lineTo(w * 0.7, horizon);
+    ctx.fill();
+
+    // Glow line at horizon
+    ctx.strokeStyle = `rgba(255, 50, 180, ${0.6 + bass * 0.4})`;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = 'rgba(255, 50, 180, 0.8)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, horizon);
+    ctx.lineTo(w, horizon);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Scanlines overlay (subtle CRT effect)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    for (let y = 0; y < h; y += 3) {
+      ctx.fillRect(0, y, w, 1);
+    }
   }
 }
 
