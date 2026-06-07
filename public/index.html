@@ -29,6 +29,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
+      padding-bottom: 90px; /* Space for fixed player bar */
     }
 
     /* ─── Header ─── */
@@ -422,6 +423,10 @@
 
     /* ─── Player Bar ─── */
     .player-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
       border-top: 2px solid var(--accent);
       padding: 14px 24px;
       display: flex;
@@ -429,6 +434,7 @@
       gap: 14px;
       background: var(--surface);
       box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 100;
     }
 
     .player-cover {
@@ -832,11 +838,12 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // ─── Cover Art Helper ────────────────────────────────────────────────────────
 function coverImg(track, size = 40) {
-  if (track && track.hasCover) {
-    // Add onerror handler to fallback to placeholder if cover fails to load
-    return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}" style="display:none">${PLACEHOLDER_SVG}</div>`;
+  if (!track) {
+    return `<div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}">${PLACEHOLDER_SVG}</div>`;
   }
-  return `<div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}">${PLACEHOLDER_SVG}</div>`;
+  // Always try to load cover, fallback to placeholder on error
+  const placeholderClass = size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder';
+  return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="${placeholderClass}" style="display:none">${PLACEHOLDER_SVG}</div>`;
 }
 
 // ─── Render Tracks ───────────────────────────────────────────────────────────
