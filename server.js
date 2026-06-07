@@ -17,14 +17,15 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],  // inline script in our SPA
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'unsafe-inline'"],  // allow inline event handlers
       styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:"],               // cover art as data URI
+      imgSrc: ["'self'", "data:"],
       mediaSrc: ["'self'"],
       connectSrc: ["'self'", "ws:", "wss:"],
     }
   },
-  crossOriginEmbedderPolicy: false,  // needed for audio streaming
+  crossOriginEmbedderPolicy: false,
 }));
 
 // Rate limiting — generous for normal use, blocks brute-force/scraping

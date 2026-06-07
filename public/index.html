@@ -860,13 +860,22 @@ document.querySelectorAll('.tab').forEach(tab => {
 
 // ─── Cover Art Helper ────────────────────────────────────────────────────────
 function coverImg(track, size = 40) {
-  if (!track) {
-    return `<div class="${size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder'}">${PLACEHOLDER_SVG}</div>`;
-  }
-  // Always try to load cover, fallback to placeholder on error
   const placeholderClass = size > 40 ? 'player-cover-placeholder' : 'track-cover-placeholder';
-  return `<img class="track-cover" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt="" onerror="this.style.display='none';this.nextSibling.style.display='flex'"><div class="${placeholderClass}" style="display:none">${PLACEHOLDER_SVG}</div>`;
+  if (!track || !track.hasCover) {
+    return `<div class="${placeholderClass}">${PLACEHOLDER_SVG}</div>`;
+  }
+  // Use data-fallback class; errors handled by delegated listener below
+  return `<img class="track-cover cover-img" src="/api/cover/${track.id}" width="${size}" height="${size}" loading="lazy" alt=""><div class="${placeholderClass}" style="display:none">${PLACEHOLDER_SVG}</div>`;
 }
+
+// Delegated error handler for cover images (CSP blocks inline onerror)
+document.addEventListener('error', (e) => {
+  if (e.target.classList && e.target.classList.contains('cover-img')) {
+    e.target.style.display = 'none';
+    const next = e.target.nextElementSibling;
+    if (next) next.style.display = 'flex';
+  }
+}, true);
 
 // ─── Render Tracks ───────────────────────────────────────────────────────────
 function renderTracks() {
@@ -1079,8 +1088,10 @@ function updateUI() {
 
 // ─── Audio Playback (single source of truth) ────────────────────────────────
 let currentlyLoadedId = null;
+let playLock = false; // prevents WebSocket from interrupting user-initiated play
 
 function stopAudio() {
+  playLock = false;
   audio.pause();
   audio.currentTime = 0;
   audio.removeAttribute('src');
@@ -1089,40 +1100,49 @@ function stopAudio() {
 }
 
 function playTrackById(trackId) {
-  // Stop current, load new, play immediately (in user gesture context)
+  // Lock: prevent WebSocket handler from interrupting this play
+  playLock = true;
+  // Stop current
   audio.pause();
   audio.currentTime = 0;
+  // Load and play new
   currentlyLoadedId = trackId;
   audio.src = `/api/stream/${trackId}`;
-  const playPromise = audio.play();
-  if (playPromise) {
-    playPromise.then(() => {
-      console.log('[Resonance] Playing track', trackId);
+  audio.load();
+  audio.addEventListener('canplay', function onCanPlay() {
+    audio.removeEventListener('canplay', onCanPlay);
+    audio.play().then(() => {
+      playLock = false;
     }).catch(err => {
-      console.error('[Resonance] Play FAILED:', err.name, err.message);
+      console.warn('[Resonance] Play error:', err.message);
+      playLock = false;
     });
-  }
-  // Then tell server (for state sync with other devices)
+  });
+  // Tell server (for state sync with other devices)
   api('/queue', 'POST', { trackIds: [trackId] })
     .then(() => api('/play', 'POST', { index: 0 }));
 }
 
-// Debug: log audio errors
-audio.addEventListener('error', () => {
-  const e = audio.error;
-  console.error('[Resonance] Audio error:', e ? `code=${e.code} msg=${e.message}` : 'unknown');
-});
-
 function loadAndPlay(track) {
   if (!track) return;
+  // If user just clicked play, don't interfere
+  if (playLock) return;
   // Already playing this track? Do nothing.
   if (currentlyLoadedId === track.id && !audio.paused) return;
-  // Load and play
+  // If same track is loaded (just paused), resume
+  if (currentlyLoadedId === track.id && audio.paused) {
+    audio.play().catch(() => {});
+    return;
+  }
+  // Load and play new track
   audio.pause();
-  audio.currentTime = 0;
   currentlyLoadedId = track.id;
   audio.src = `/api/stream/${track.id}`;
-  audio.play().catch(err => console.warn('Play blocked:', err.message));
+  audio.load();
+  audio.addEventListener('canplay', function onCanPlay() {
+    audio.removeEventListener('canplay', onCanPlay);
+    audio.play().catch(() => {});
+  });
 }
 
 audio.addEventListener('timeupdate', () => {
