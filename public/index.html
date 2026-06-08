@@ -648,42 +648,75 @@ document.querySelectorAll('.tab').forEach(function(tab) {
   });
 });
 
-// ─── Render Tracks ───────────────────────────────────────────────────────────
+// ─── Render Tracks (lazy — render in batches for performance) ────────────────
+var BATCH_SIZE = 80;
+var renderedCount = 0;
+var loadingMore = false;
+
 function renderTracks() {
   var list = document.getElementById('trackList');
   document.getElementById('trackCount').textContent = tracks.length + ' track' + (tracks.length !== 1 ? 's' : '');
-  list.innerHTML = tracks.map(function(t) {
+  renderedCount = 0;
+  list.innerHTML = '';
+  appendTrackBatch(list);
+}
+
+function appendTrackBatch(list) {
+  if (renderedCount >= tracks.length) return;
+  var end = Math.min(renderedCount + BATCH_SIZE, tracks.length);
+  var html = '';
+  for (var i = renderedCount; i < end; i++) {
+    var t = tracks[i];
     var coverHtml = t.hasCover
       ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
       : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
-    return '<div class="track-item" data-id="' + t.id + '">' +
+    html += '<div class="track-item" data-id="' + t.id + '">' +
       coverHtml +
       '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
       (t.genre ? '<span class="track-genre">' + esc(t.genre) + '</span>' : '') +
       '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
       '<button class="add-btn" data-id="' + t.id + '" title="Add to queue">+</button>' +
     '</div>';
-  }).join('');
-
-  list.querySelectorAll('.track-item').forEach(function(el) {
-    el.addEventListener('click', function(e) {
-      if (e.target.classList.contains('add-btn')) return;
-      var id = parseInt(el.dataset.id);
-      // Play this track, queue = all visible tracks starting from this one
-      var idx = tracks.findIndex(function(t){ return t.id === id; });
-      queue = tracks.map(function(t){ return t.id; });
-      currentIndex = idx >= 0 ? idx : 0;
-      playCurrentTrack();
-      renderQueue();
-    });
-    var addBtn = el.querySelector('.add-btn');
-    if (addBtn) addBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      queue.push(parseInt(e.target.dataset.id));
-      renderQueue();
-    });
-  });
+  }
+  var frag = document.createElement('div');
+  frag.innerHTML = html;
+  while (frag.firstChild) list.appendChild(frag.firstChild);
+  renderedCount = end;
+  loadingMore = false;
 }
+
+// Infinite scroll — load more when near bottom
+(function() {
+  var list = document.getElementById('trackList');
+  list.addEventListener('scroll', function() {
+    if (loadingMore) return;
+    if (renderedCount >= tracks.length) return;
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 200) {
+      loadingMore = true;
+      appendTrackBatch(list);
+    }
+  });
+})();
+
+// Event delegation for track clicks (no per-element listeners)
+document.getElementById('trackList').addEventListener('click', function(e) {
+  var addBtn = e.target.closest('.add-btn');
+  if (addBtn) {
+    e.stopPropagation();
+    queue.push(parseInt(addBtn.dataset.id));
+    renderQueue();
+    return;
+  }
+  var item = e.target.closest('.track-item');
+  if (!item) return;
+  var id = parseInt(item.dataset.id);
+  var idx = tracks.findIndex(function(t){ return t.id === id; });
+  queue = tracks.map(function(t){ return t.id; });
+  currentIndex = idx >= 0 ? idx : 0;
+  playCurrentTrack();
+  renderQueue();
+  document.querySelector('[data-tab="nowplaying"]').click();
+});
 
 // ─── Render Queue ────────────────────────────────────────────────────────────
 function renderQueue() {
