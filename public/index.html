@@ -424,10 +424,11 @@
     .settings-section h4 { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 
     /* ─── Scrollbar ─── */
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 5px; border: 2px solid var(--bg); }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+    .track-list { padding-right: 6px; }
 
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -768,6 +769,29 @@ document.getElementById('trackList').addEventListener('click', function(e) {
 // ─── Render Queue ────────────────────────────────────────────────────────────
 function renderQueue() {
   var list = document.getElementById('queueList');
+
+  // On mobile Remote mode, show the server queue
+  if (!isDesktop && mobileMode === 'remote' && lastDesktopState && lastDesktopState.queue) {
+    var sq = lastDesktopState.queue;
+    var sci = lastDesktopState.currentIndex || 0;
+    if (!sq.length) {
+      list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Server queue is empty</div>';
+      return;
+    }
+    list.innerHTML = sq.map(function(t, i) {
+      var coverHtml = t.hasCover
+        ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
+        : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
+      return '<div class="track-item ' + (i === sci ? 'playing' : '') + '">' +
+        coverHtml +
+        '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
+        '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
+      '</div>';
+    }).join('');
+    return;
+  }
+
+  // Local queue
   if (!queue.length) {
     list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Queue is empty — pick a track!</div>';
     return;
@@ -804,11 +828,23 @@ document.getElementById('genreFilter').addEventListener('change', function(e) {
 });
 
 // ─── Playlists ───────────────────────────────────────────────────────────────
+// Playlist color palette (high contrast, on-brand)
+var PL_COLORS = ['#e8a435','#c47a7a','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#e05555','#8b5cf6','#f59e0b'];
+
+function getPlaylistColor(name, index) {
+  // Simple hash from name for deterministic color
+  var hash = 0;
+  for (var i = 0; i < (name||'').length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+  return PL_COLORS[Math.abs(hash + index) % PL_COLORS.length];
+}
+
 function renderPlaylists() {
   var view = document.getElementById('playlistsView');
   if (!playlists.length) { view.innerHTML = '<p style="color:var(--text-muted);font-size:0.83rem;">No playlists yet.</p>'; return; }
-  view.innerHTML = playlists.map(function(p) {
-    return '<div class="playlist-card" data-id="' + p.id + '"><div><div class="pl-name">' + esc(p.name) + '</div><div class="pl-count">' + p.trackCount + ' tracks</div></div>' +
+  view.innerHTML = playlists.map(function(p, i) {
+    var color = getPlaylistColor(p.name, i);
+    var icon = '<div style="width:40px;height:40px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem;font-weight:700;color:#0a0a0b;">' + esc(p.name.charAt(0).toUpperCase()) + '</div>';
+    return '<div class="playlist-card" data-id="' + p.id + '">' + icon + '<div style="flex:1;min-width:0;margin-left:12px;"><div class="pl-name">' + esc(p.name) + '</div><div class="pl-count">' + p.trackCount + ' tracks</div></div>' +
       '<div class="pl-actions"><button class="pl-btn play-pl" data-id="' + p.id + '">Play</button><button class="pl-btn del" data-id="' + p.id + '">Delete</button></div></div>';
   }).join('');
 
@@ -1152,6 +1188,11 @@ if (isDesktop) {
       progress: audio.currentTime || 0,
       duration: audio.duration || 0,
       hasCover: track ? track.hasCover : false,
+      queue: queue.slice(0, 200).map(function(id) {
+        var t = tracks.find(function(x){ return x.id === id; });
+        return t ? { id: t.id, title: t.title, artist: t.artist, hasCover: t.hasCover, duration: t.duration } : null;
+      }).filter(Boolean),
+      currentIndex: currentIndex,
     };
     fetch('/api/desktop/state', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).catch(function(){});
   }
@@ -1160,8 +1201,8 @@ if (isDesktop) {
   audio.addEventListener('play', broadcastDesktopState);
   audio.addEventListener('pause', broadcastDesktopState);
   audio.addEventListener('ended', broadcastDesktopState);
-  // Broadcast progress every 3s
-  setInterval(function() { if (isPlaying) broadcastDesktopState(); }, 3000);
+  // Broadcast progress every 1s
+  setInterval(function() { if (isPlaying) broadcastDesktopState(); }, 1000);
 
   // Listen for remote commands from mobile
   // (via WS — handled below in WS section)
@@ -1269,7 +1310,10 @@ function remoteAddToQueue(trackId) {
       lastDesktopState = msg.data;
       // Auto-switch to remote if desktop is playing and user hasn't picked stream
       if (msg.data.isPlaying && !userPickedStream) setMobileMode('remote');
-      if (mobileMode === 'remote') updatePlayerFromDesktop(msg.data);
+      if (mobileMode === 'remote') {
+        updatePlayerFromDesktop(msg.data);
+        renderQueue();
+      }
     }
     // Remote commands (mobile → desktop)
     if (msg.type === 'remote:command' && isDesktop) {

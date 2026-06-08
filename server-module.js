@@ -7,24 +7,38 @@ const { spawn } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-let config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
-
 let serverInstance = null;
 let wssInstance = null;
 
-// ─── Data directory (writable at runtime) ───────────────────────────────────
-// In packaged Electron, __dirname may be read-only (asar or program files).
-// Use Electron's userData path when available, else fall back to __dirname.
+// ─── Data directory (writable, persists across updates) ─────────────────────
 function getDataDir() {
   try {
     const { app } = require('electron');
     return app.getPath('userData');
   } catch (e) {
-    // Not running inside Electron (standalone server mode) — use __dirname
     return __dirname;
   }
 }
 const DATA_DIR = getDataDir();
+
+// ─── Config (stored in userData so it survives updates) ─────────────────────
+const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
+const DEFAULT_CONFIG = { musicFolders: [], excludeFolders: [], port: 3000, scanOnStartup: true, watchForChanges: true };
+
+function loadConfig() {
+  try {
+    if (fs.existsSync(CONFIG_PATH)) {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
+    }
+  } catch (e) { /* corrupt file, use default */ }
+  // First run: try shipped config as seed, then default
+  try {
+    const shipped = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+    return { ...DEFAULT_CONFIG, ...shipped };
+  } catch (e) { return DEFAULT_CONFIG; }
+}
+
+let config = loadConfig();
 
 // ─── State ───────────────────────────────────────────────────────────────────
 let library = [];
@@ -67,9 +81,7 @@ async function scanFolders() {
   scanning = true;
 
   // Reload config (may have been updated via settings)
-  try {
-    config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
-  } catch (e) { /* keep current config */ }
+  config = loadConfig();
 
   const excludeFolders = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
 
@@ -694,8 +706,7 @@ function getConfig() {
 
 function saveConfig(newConfig) {
   config = { ...config, ...newConfig };
-  const configPath = path.join(__dirname, 'config.json');
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
 }
 
 module.exports = { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig };
