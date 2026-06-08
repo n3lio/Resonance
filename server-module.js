@@ -7,28 +7,32 @@ const { spawn } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
+const QRCode = require('qrcode');
 let serverInstance = null;
 let wssInstance = null;
 
-// ─── Data directory (writable, persists across updates) ─────────────────────
-function getDataDir() {
-  try {
-    const { app } = require('electron');
-    return app.getPath('userData');
-  } catch (e) {
-    return __dirname;
-  }
+// ─── Data directory (set by main.js before startServer, or fallback to __dirname)
+let DATA_DIR = __dirname;
+
+function setDataDir(dir) {
+  DATA_DIR = dir;
+  // Reload config from the correct location
+  config = loadConfig();
+  // Ensure covers dir exists
+  const coversDir = path.join(DATA_DIR, '__covers');
+  if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
 }
-const DATA_DIR = getDataDir();
 
 // ─── Config (stored in userData so it survives updates) ─────────────────────
-const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const DEFAULT_CONFIG = { musicFolders: [], excludeFolders: [], port: 3000, scanOnStartup: true, watchForChanges: true };
+
+function getConfigPath() { return path.join(DATA_DIR, 'config.json'); }
 
 function loadConfig() {
   try {
-    if (fs.existsSync(CONFIG_PATH)) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
+    const cfgPath = getConfigPath();
+    if (fs.existsSync(cfgPath)) {
+      return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(cfgPath, 'utf8')) };
     }
   } catch (e) { /* corrupt file, use default */ }
   // First run: try shipped config as seed, then default
@@ -50,27 +54,27 @@ let playMode = 'stream';
 let mpvProcess = null;
 
 // Playlists stored in a JSON file
-const PLAYLISTS_FILE = path.join(DATA_DIR, 'playlists.json');
+function getPlaylistsPath() { return path.join(DATA_DIR, 'playlists.json'); }
 let playlists = loadPlaylists();
 
 function loadPlaylists() {
   try {
-    if (fs.existsSync(PLAYLISTS_FILE)) {
-      return JSON.parse(fs.readFileSync(PLAYLISTS_FILE, 'utf8'));
+    var p = getPlaylistsPath();
+    if (fs.existsSync(p)) {
+      return JSON.parse(fs.readFileSync(p, 'utf8'));
     }
   } catch (e) { console.warn('Could not load playlists:', e.message); }
   return [];
 }
 
 function savePlaylists() {
-  fs.writeFileSync(PLAYLISTS_FILE, JSON.stringify(playlists, null, 2));
+  fs.writeFileSync(getPlaylistsPath(), JSON.stringify(playlists, null, 2));
 }
 
 // ─── Cover Cache ────────────────────────────────────────────────────────────
-const COVERS_DIR = path.join(DATA_DIR, '__covers');
-if (!fs.existsSync(COVERS_DIR)) {
-  fs.mkdirSync(COVERS_DIR, { recursive: true });
-}
+function getCoversDir() { return path.join(DATA_DIR, '__covers'); }
+// Ensure covers dir exists at startup
+(function() { var d = getCoversDir(); if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); })();
 
 // ─── Library Scanner ─────────────────────────────────────────────────────────
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.flac', '.ogg', '.wav', '.aac']);
@@ -92,9 +96,9 @@ async function scanFolders() {
 
   // Clear cover cache before rescan
   try {
-    const existing = fs.readdirSync(COVERS_DIR);
+    const existing = fs.readdirSync(getCoversDir());
     for (const file of existing) {
-      fs.unlinkSync(path.join(COVERS_DIR, file));
+      fs.unlinkSync(path.join(getCoversDir(), file));
     }
   } catch (e) { /* ignore */ }
 
@@ -149,7 +153,7 @@ async function scanDirectory(dir, excludeFolders) {
             else if (picture.format.includes('webp')) ext = '.webp';
             else if (picture.format.includes('gif')) ext = '.gif';
           }
-          const coverPath = path.join(COVERS_DIR, `${trackId}${ext}`);
+          const coverPath = path.join(getCoversDir(), `${trackId}${ext}`);
           try {
             fs.writeFileSync(coverPath, picture.data);
           } catch (writeErr) {
@@ -343,7 +347,7 @@ function startServer(port) {
       if (!track || !track.hasCover) return res.status(404).json({ error: 'No cover art' });
       const extensions = ['.jpg', '.png', '.webp', '.gif'];
       for (const ext of extensions) {
-        const coverPath = path.join(COVERS_DIR, `${track.id}${ext}`);
+        const coverPath = path.join(getCoversDir(), `${track.id}${ext}`);
         if (fs.existsSync(coverPath)) {
           const mimeTypes = { '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif' };
           res.set({
@@ -514,6 +518,19 @@ function startServer(port) {
       if (!command) return res.status(400).json({ error: 'command required' });
       broadcast({ type: 'remote:command', data: { command } });
       res.json({ ok: true });
+    });
+
+    // QR code for mobile access
+    app.get('/api/qrcode', async (req, res) => {
+      const ip = getLanIp();
+      const port = config.port || 3000;
+      const url = `http://${ip}:${port}`;
+      try {
+        const svg = await QRCode.toString(url, { type: 'svg', margin: 1, width: 180 });
+        res.json({ url, svg });
+      } catch (e) {
+        res.status(500).json({ error: 'QR generation failed' });
+      }
     });
 
     // Playlists
@@ -706,7 +723,7 @@ function getConfig() {
 
 function saveConfig(newConfig) {
   config = { ...config, ...newConfig };
-  fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2));
+  fs.writeFileSync(getConfigPath(), JSON.stringify(config, null, 2));
 }
 
-module.exports = { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig };
+module.exports = { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig, setDataDir };

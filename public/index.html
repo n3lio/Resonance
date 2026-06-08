@@ -639,7 +639,6 @@
 
 <audio id="audio" preload="auto"></audio>
 
-<script src="qr.js"></script>
 <script src="visualizer.js"></script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -1110,20 +1109,22 @@ async function openSettings() {
     var ver = await window.resonance.getVersion();
     document.getElementById('aboutText').textContent = 'Resonance v' + ver + ' — by n3lio';
 
-    // Generate QR code for mobile access
-    var status = await window.resonance.getServerStatus();
+    // Generate QR code for mobile access (via server API)
     var qrContainer = document.getElementById('qrCode');
     var qrUrl = document.getElementById('qrUrl');
     var qrLabel = document.getElementById('qrLabel');
-    if (status.ip && status.ip !== '0.0.0.0') {
-      var url = 'http://' + status.ip + ':' + (status.port || 3000);
-      QR.toCanvas(qrContainer, url, 4);
-      qrUrl.textContent = url;
-      qrLabel.textContent = 'Scan from your phone to open Resonance';
-    } else {
-      while (qrContainer.firstChild) qrContainer.removeChild(qrContainer.firstChild);
+    try {
+      var qrData = await fetch('/api/qrcode').then(function(r){ return r.json(); });
+      if (qrData.svg) {
+        qrContainer.style.display = 'flex';
+        qrContainer.innerHTML = qrData.svg;
+        qrUrl.textContent = qrData.url;
+        qrLabel.textContent = 'Scan from your phone to open Resonance';
+      }
+    } catch(e) {
+      qrContainer.style.display = 'none';
       qrUrl.textContent = '';
-      qrLabel.textContent = 'Could not detect LAN IP';
+      qrLabel.textContent = 'QR code unavailable';
     }
   } else {
     settingsFolders = [];

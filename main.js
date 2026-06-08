@@ -2,7 +2,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog } = require
 const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
-const { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig } = require('./server-module');
+const { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig, setDataDir } = require('./server-module');
 
 let mainWindow = null;
 let tray = null;
@@ -202,6 +202,10 @@ function setupAutoUpdater() {
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  // Set data dir to userData (persists across updates)
+  setDataDir(app.getPath('userData'));
+  console.log('Data dir:', app.getPath('userData'));
+
   // Always start server locally (UI needs it for fetch/WS)
   try {
     await startServer(3000);
