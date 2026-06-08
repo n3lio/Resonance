@@ -6,8 +6,7 @@ contextBridge.exposeInMainWorld('resonance', {
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
 
-  // Server
-  toggleServer: () => ipcRenderer.invoke('server:toggle'),
+  // Server info
   getServerStatus: () => ipcRenderer.invoke('server:status'),
 
   // Config / Settings
@@ -19,7 +18,6 @@ contextBridge.exposeInMainWorld('resonance', {
   getVersion: () => ipcRenderer.invoke('app:version'),
 
   // Events
-  onServerStatusChanged: (cb) => ipcRenderer.on('server:status-changed', (_, d) => cb(d)),
   onUpdateAvailable: (cb) => ipcRenderer.on('app:update-available', (_, d) => cb(d)),
   onUpdateDownloaded: (cb) => ipcRenderer.on('app:update-downloaded', (_, d) => cb(d)),
 

@@ -6,7 +6,6 @@ const { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig, set
 
 let mainWindow = null;
 let tray = null;
-let serverRunning = false;
 
 // ─── Single Instance Lock ───────────────────────────────────────────────────
 const gotLock = app.requestSingleInstanceLock();

@@ -3,7 +3,6 @@ const path = require('path');
 const fs = require('fs');
 const { WebSocketServer } = require('ws');
 const { parseFile } = require('music-metadata');
-const { spawn } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
@@ -82,8 +81,6 @@ let genres = new Set();
 let queue = [];
 let currentIndex = 0;
 let isPlaying = false;
-let playMode = 'stream';
-let mpvProcess = null;
 
 // Playlists stored in a JSON file
 function getPlaylistsPath() { return path.join(DATA_DIR, 'playlists.json'); }
@@ -277,55 +274,11 @@ function getState() {
     queue: queue.map(id => library[id]).filter(Boolean),
     currentIndex,
     isPlaying,
-    playMode,
     currentTrack: queue[currentIndex] != null ? library[queue[currentIndex]] : null,
     desktop: desktopState,
   };
 }
 
-// ─── Local Playback (mpv) ────────────────────────────────────────────────────
-function playLocal() {
-  if (mpvProcess) {
-    mpvProcess.kill();
-    mpvProcess = null;
-  }
-
-  const track = library[queue[currentIndex]];
-  if (!track) return;
-
-  try {
-    mpvProcess = spawn('mpv', ['--no-video', '--input-terminal=yes', track.path], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-
-    mpvProcess.on('error', (err) => {
-      console.error('mpv error:', err.message);
-      if (err.code === 'ENOENT') {
-        console.error('mpv not found. Install mpv and add it to PATH, or use Stream mode instead.');
-      }
-      mpvProcess = null;
-      isPlaying = false;
-      broadcast({ type: 'state', data: getState() });
-    });
-
-    mpvProcess.on('close', (code) => {
-      mpvProcess = null;
-      if (code === 0 && isPlaying && currentIndex < queue.length - 1) {
-        currentIndex++;
-        broadcast({ type: 'state', data: getState() });
-        playLocal();
-      } else {
-        isPlaying = false;
-        broadcast({ type: 'state', data: getState() });
-      }
-    });
-  } catch (err) {
-    console.error('Failed to start mpv:', err.message);
-    mpvProcess = null;
-    isPlaying = false;
-    broadcast({ type: 'state', data: getState() });
-  }
-}
 
 // ─── Get LAN IP ─────────────────────────────────────────────────────────────
 function getLanIp() {
@@ -501,16 +454,12 @@ function startServer(port) {
         currentIndex = idx;
       }
       isPlaying = true;
-      if (playMode === 'local') playLocal();
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
     });
 
     app.post('/api/pause', (req, res) => {
       isPlaying = false;
-      if (mpvProcess) {
-        mpvProcess.stdin.write('cycle pause\n');
-      }
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
     });
@@ -518,7 +467,6 @@ function startServer(port) {
     app.post('/api/next', (req, res) => {
       if (currentIndex < queue.length - 1) {
         currentIndex++;
-        if (playMode === 'local' && isPlaying) playLocal();
         broadcast({ type: 'state', data: getState() });
       } else {
         isPlaying = false;
@@ -529,7 +477,6 @@ function startServer(port) {
 
     app.post('/api/prev', (req, res) => {
       if (currentIndex > 0) currentIndex--;
-      if (playMode === 'local' && isPlaying) playLocal();
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
     });
@@ -542,20 +489,6 @@ function startServer(port) {
       currentIndex = 0;
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
-    });
-
-    app.post('/api/mode', (req, res) => {
-      const { mode } = req.body;
-      if (!['stream', 'local'].includes(mode)) {
-        return res.status(400).json({ error: 'Mode must be "stream" or "local"' });
-      }
-      playMode = mode;
-      if (mode === 'stream' && mpvProcess) {
-        mpvProcess.kill();
-        mpvProcess = null;
-      }
-      broadcast({ type: 'state', data: getState() });
-      res.json({ ok: true, mode });
     });
 
     app.post('/api/rescan', rescanLimiter, async (req, res) => {
@@ -729,7 +662,6 @@ function startServer(port) {
       queue = resolvePlaylistTracks(pl);
       currentIndex = 0;
       isPlaying = true;
-      if (playMode === 'local') playLocal();
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
     });
@@ -834,11 +766,6 @@ function startServer(port) {
 // ─── Stop Server ────────────────────────────────────────────────────────────
 function stopServer() {
   return new Promise((resolve) => {
-    if (mpvProcess) {
-      mpvProcess.kill();
-      mpvProcess = null;
-    }
-
     // Close all WebSocket connections
     clients.forEach(ws => {
       try { ws.close(); } catch (e) { /* ignore */ }
