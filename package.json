@@ -1,12 +1,11 @@
 {
   "name": "resonance",
-  "version": "1.0.3",
-  "description": "Personal MP3 player/streamer - LAN + remote access",
+  "version": "1.1.0",
+  "description": "Personal music player & LAN streamer for Windows",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron . --dev",
-    "server": "node server.js",
     "build": "electron-builder --win",
     "build:dir": "electron-builder --win --dir"
   },
@@ -32,7 +31,6 @@
     "files": [
       "main.js",
       "preload.js",
-      "server.js",
       "server-module.js",
       "config.json",
       "public/**/*",

@@ -1,29 +1,27 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('resonance', {
-  // Server control
-  toggleServer: () => ipcRenderer.invoke('server:toggle'),
-  getServerStatus: () => ipcRenderer.invoke('server:status'),
-
-  // App info
-  getVersion: () => ipcRenderer.invoke('app:version'),
-
-  // Window controls (frameless)
+  // Window controls
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
 
-  // Events from main process
-  onServerStatusChanged: (callback) => {
-    ipcRenderer.on('server:status-changed', (event, data) => callback(data));
-  },
-  onUpdateAvailable: (callback) => {
-    ipcRenderer.on('app:update-available', (event, data) => callback(data));
-  },
-  onUpdateDownloaded: (callback) => {
-    ipcRenderer.on('app:update-downloaded', (event, data) => callback(data));
-  },
+  // Server
+  toggleServer: () => ipcRenderer.invoke('server:toggle'),
+  getServerStatus: () => ipcRenderer.invoke('server:status'),
 
-  // Check if running in Electron
+  // Config / Settings
+  getConfig: () => ipcRenderer.invoke('config:get'),
+  setConfig: (config) => ipcRenderer.invoke('config:set', config),
+  pickFolder: () => ipcRenderer.invoke('config:pick-folder'),
+
+  // App info
+  getVersion: () => ipcRenderer.invoke('app:version'),
+
+  // Events
+  onServerStatusChanged: (cb) => ipcRenderer.on('server:status-changed', (_, d) => cb(d)),
+  onUpdateAvailable: (cb) => ipcRenderer.on('app:update-available', (_, d) => cb(d)),
+  onUpdateDownloaded: (cb) => ipcRenderer.on('app:update-downloaded', (_, d) => cb(d)),
+
   isElectron: true,
 });

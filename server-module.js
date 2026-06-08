@@ -7,7 +7,7 @@ const { spawn } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const crypto = require('crypto');
-const config = require('./config.json');
+let config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
 
 let serverInstance = null;
 let wssInstance = null;
@@ -646,4 +646,14 @@ function isRunning() {
   return !!serverInstance;
 }
 
-module.exports = { startServer, stopServer, isRunning, getLanIp };
+function getConfig() {
+  return config;
+}
+
+function saveConfig(newConfig) {
+  config = { ...config, ...newConfig };
+  const configPath = path.join(__dirname, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+}
+
+module.exports = { startServer, stopServer, isRunning, getLanIp, getConfig, saveConfig };

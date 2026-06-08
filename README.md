@@ -53,8 +53,8 @@ After install, edit `config.json` in the app folder:
 
 ```json
 {
-  "musicFolders": ["C:/Users/Lionel/Music"],
-  "excludeFolders": ["iTunes", "Apple Music"],
+  "musicFolders": ["C:/Users/YourName/Music"],
+  "excludeFolders": ["iTunes"],
   "port": 3000,
   "scanOnStartup": true,
   "watchForChanges": true
