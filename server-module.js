@@ -190,6 +190,9 @@ function broadcast(message) {
   });
 }
 
+// Desktop player state (broadcast by the Electron app)
+let desktopState = { trackId: null, title: '', artist: '', isPlaying: false, progress: 0, duration: 0 };
+
 function getState() {
   return {
     queue: queue.map(id => library[id]).filter(Boolean),
@@ -197,6 +200,7 @@ function getState() {
     isPlaying,
     playMode,
     currentTrack: queue[currentIndex] != null ? library[queue[currentIndex]] : null,
+    desktop: desktopState,
   };
 }
 
@@ -297,10 +301,11 @@ function startServer(port) {
     // ─── API Routes ──────────────────────────────────────────────────────────
     app.get('/api/tracks', (req, res) => {
       const q = (req.query.q || '').toLowerCase().trim();
-      const genre = (req.query.genre || '').trim();
+      const genre = (req.query.genre || '').trim().toLowerCase();
       let results = library;
       if (genre) {
-        results = results.filter(t => t.genre && t.genre.toLowerCase() === genre.toLowerCase());
+        // Substring match: "Hip-Hop" matches "Hip-Hop", "Hip-Hop, R&B", etc.
+        results = results.filter(t => t.genre && t.genre.toLowerCase().includes(genre));
       }
       if (q) {
         results = results.filter(t =>
@@ -478,6 +483,25 @@ function startServer(port) {
       await scanFolders();
       broadcast({ type: 'library-updated', data: { count: library.length } });
       res.json({ ok: true, count: library.length });
+    });
+
+    // ─── Desktop State (Electron pushes its player state here) ───────────────
+    app.post('/api/desktop/state', (req, res) => {
+      desktopState = req.body || {};
+      broadcast({ type: 'desktop:state', data: desktopState });
+      res.json({ ok: true });
+    });
+
+    app.get('/api/desktop/state', (req, res) => {
+      res.json(desktopState);
+    });
+
+    // Remote commands (mobile → desktop via WS broadcast)
+    app.post('/api/remote/command', (req, res) => {
+      const { command } = req.body;
+      if (!command) return res.status(400).json({ error: 'command required' });
+      broadcast({ type: 'remote:command', data: { command } });
+      res.json({ ok: true });
     });
 
     // Playlists

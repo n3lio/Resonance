@@ -431,11 +431,28 @@
 
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
+    /* ─── Remote Bar ─── */
+    .remote-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      background: rgba(122,196,122,0.06);
+      border-top: 1px solid rgba(122,196,122,0.2);
+      flex-shrink: 0;
+    }
+
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
-      .player-info { width: 100px; }
+      .player-bar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+      .player-info { width: auto; flex: 1; min-width: 0; }
+      .player-cover { width: 40px; height: 40px; }
+      .player-controls { order: 3; }
+      .progress-container { order: 4; width: 100%; flex-basis: 100%; }
       .volume-control { display: none; }
-      .player-bar { padding: 10px 12px; gap: 10px; }
+      #vizToggleBtn { display: none; }
+      .settings-btn { display: none !important; }
+      .window-controls { display: none !important; }
     }
   </style>
 </head>
@@ -515,6 +532,21 @@
       <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
     </div>
     <div class="playlists-view" id="playlistsView"></div>
+  </div>
+</div>
+
+<!-- Remote Bar (mobile only — shows desktop state) -->
+<div class="remote-bar" id="remoteBar" style="display:none">
+  <div class="remote-cover" style="width:36px;height:36px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--surface);"></div>
+  <div style="flex:1;min-width:0;">
+    <div class="remote-title" style="font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+    <div class="remote-artist" style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+  </div>
+  <span class="remote-status" style="font-size:0.65rem;color:var(--green);white-space:nowrap;"></span>
+  <div style="display:flex;gap:4px;">
+    <button onclick="sendRemoteCommand('prev')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+    <button onclick="sendRemoteCommand(document.querySelector('.remote-status').textContent.includes('Playing')?'pause':'play')" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg></button>
+    <button onclick="sendRemoteCommand('next')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
   </div>
 </div>
 
@@ -1048,18 +1080,25 @@ document.getElementById('settingsSave').addEventListener('click', async function
   if (viz) viz.setMode(vizMode);
   document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){ i.classList.toggle('active', i.dataset.viz === vizMode); });
 
+  // Close modal immediately for snappy UX
+  settingsModal.classList.remove('open');
+
   if (window.resonance) {
     await window.resonance.setConfig({ musicFolders: settingsFolders });
-    // Trigger rescan
-    await api('/rescan', 'POST');
+  }
+  // Trigger rescan (indicator shows via WS)
+  api('/rescan', 'POST').then(function() {
     fetchTracks();
     fetchGenres();
-  }
-  settingsModal.classList.remove('open');
+  }).catch(function(){});
+
+  showToast('Settings saved. Scanning...');
 });
 
 // ─── Electron Integration ───────────────────────────────────────────────────
-if (window.resonance && window.resonance.isElectron) {
+var isDesktop = !!(window.resonance && window.resonance.isElectron);
+
+if (isDesktop) {
   // Window controls in header
   document.getElementById('winControls').classList.add('visible');
   document.getElementById('tbClose').addEventListener('click', function() { window.resonance.close(); });
@@ -1080,6 +1119,32 @@ if (window.resonance && window.resonance.isElectron) {
     pill.querySelector('.server-label').textContent = s.running ? s.ip + ':' + s.port : 'LAN Server';
   }
 
+  // Broadcast desktop player state to server (so mobile can see it)
+  function broadcastDesktopState() {
+    var trackId = queue[currentIndex];
+    var track = trackId != null ? tracks.find(function(t){ return t.id === trackId; }) : null;
+    var payload = {
+      trackId: trackId != null ? trackId : null,
+      title: track ? track.title : '',
+      artist: track ? track.artist : '',
+      isPlaying: isPlaying,
+      progress: audio.currentTime || 0,
+      duration: audio.duration || 0,
+      hasCover: track ? track.hasCover : false,
+    };
+    fetch('/api/desktop/state', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).catch(function(){});
+  }
+
+  // Broadcast on play/pause/track change
+  audio.addEventListener('play', broadcastDesktopState);
+  audio.addEventListener('pause', broadcastDesktopState);
+  audio.addEventListener('ended', broadcastDesktopState);
+  // Broadcast progress every 3s
+  setInterval(function() { if (isPlaying) broadcastDesktopState(); }, 3000);
+
+  // Listen for remote commands from mobile
+  // (via WS — handled below in WS section)
+
   // Updates
   window.resonance.onUpdateAvailable(function(d) { showToast('Update available: v' + d.version); });
   window.resonance.onUpdateDownloaded(function(d) { showToast('v' + d.version + ' ready — restart to install'); });
@@ -1097,7 +1162,7 @@ function showToast(msg) {
 function formatTime(s) { if (!s||isNaN(s)) return '0:00'; var m=Math.floor(s/60); var sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
 function esc(str) { var d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
 
-// ─── WebSocket (scan notifications + library updates) ────────────────────────
+// ─── WebSocket (scan notifications + library updates + remote) ───────────────
 (function connectWS() {
   if (!location.host) return;
   var ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host);
@@ -1115,10 +1180,43 @@ function esc(str) { var d=document.createElement('div'); d.textContent=str||''; 
       fetchTracks();
       fetchGenres();
     }
+    // Desktop state update (for mobile remote view)
+    if (msg.type === 'desktop:state' && !isDesktop) {
+      updateRemoteDisplay(msg.data);
+    }
+    // Remote commands (mobile → desktop)
+    if (msg.type === 'remote:command' && isDesktop) {
+      var cmd = msg.data.command;
+      if (cmd === 'play') { audio.play(); isPlaying = true; updatePlayBtn(); }
+      if (cmd === 'pause') { audio.pause(); isPlaying = false; updatePlayBtn(); }
+      if (cmd === 'next') document.getElementById('nextBtn').click();
+      if (cmd === 'prev') document.getElementById('prevBtn').click();
+    }
   };
   ws.onclose = function() { setTimeout(connectWS, 3000); };
   ws.onerror = function() { ws.close(); };
 })();
+
+// ─── Remote Display (mobile shows what desktop is playing) ───────────────────
+function updateRemoteDisplay(d) {
+  var el = document.getElementById('remoteBar');
+  if (!el) return;
+  if (!d || !d.trackId) {
+    el.style.display = 'none';
+    return;
+  }
+  el.style.display = 'flex';
+  el.querySelector('.remote-title').textContent = d.title || 'Unknown';
+  el.querySelector('.remote-artist').textContent = d.artist || '';
+  el.querySelector('.remote-status').textContent = d.isPlaying ? 'Playing on server' : 'Paused on server';
+  var coverEl = el.querySelector('.remote-cover');
+  if (d.hasCover) coverEl.innerHTML = '<img src="/api/cover/' + d.trackId + '">';
+  else coverEl.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
+}
+
+function sendRemoteCommand(cmd) {
+  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: cmd }) }).catch(function(){});
+}
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();
