@@ -81,10 +81,7 @@ function updateTrayMenu() {
       },
     },
     { type: 'separator' },
-    {
-      label: `LAN Server: ${serverRunning ? 'ON' : 'OFF'}`,
-      click: () => { toggleLanServer(); },
-    },
+    { label: `Server: ${getLanIp()}:3000`, enabled: false },
     { type: 'separator' },
     {
       label: 'Quit',
@@ -120,23 +117,6 @@ function getTrayIcon() {
   return nativeImage.createFromBuffer(canvas, { width: size, height: size });
 }
 
-// ─── LAN Server Toggle ──────────────────────────────────────────────────────
-async function toggleLanServer() {
-  if (serverRunning) {
-    // We can't actually stop the server (UI depends on it)
-    // Instead, toggle network visibility — for now, just update state
-    serverRunning = false;
-  } else {
-    serverRunning = true;
-  }
-  updateTrayMenu();
-  notifyRenderer('server:status-changed', {
-    running: serverRunning,
-    ip: serverRunning ? getLanIp() : null,
-    port: 3000,
-  });
-}
-
 function notifyRenderer(channel, data) {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(channel, data);
@@ -144,13 +124,8 @@ function notifyRenderer(channel, data) {
 }
 
 // ─── IPC Handlers ───────────────────────────────────────────────────────────
-ipcMain.handle('server:toggle', async () => {
-  await toggleLanServer();
-  return { running: serverRunning, ip: serverRunning ? getLanIp() : null, port: 3000 };
-});
-
 ipcMain.handle('server:status', () => {
-  return { running: serverRunning, ip: serverRunning ? getLanIp() : null, port: 3000 };
+  return { running: true, ip: getLanIp(), port: 3000 };
 });
 
 ipcMain.handle('app:version', () => app.getVersion());
