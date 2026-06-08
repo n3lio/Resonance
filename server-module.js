@@ -26,7 +26,8 @@ const DEFAULT_PLAYLISTS = [
 ];
 
 function createDefaultPlaylists() {
-  if (playlists.length > 0) return; // Don't override existing
+  // Only create if no smart playlists exist yet
+  if (playlists.some(p => p.type === 'smart')) return;
   for (const def of DEFAULT_PLAYLISTS) {
     playlists.push({
       id: crypto.randomUUID(),

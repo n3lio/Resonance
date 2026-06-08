@@ -269,49 +269,65 @@
     }
     .track-item:hover .add-btn { opacity: 1; }
 
-    /* ─── Now Playing Hero ─── */
+    /* ─── Now Playing Hero + Viz side-by-side on desktop ─── */
+    .np-row {
+      display: flex;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+    }
     .np-hero {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 24px 20px 16px;
-      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
-      gap: 12px;
+      justify-content: center;
+      padding: 20px;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
     }
+    .np-viz-side {
+      flex: 1;
+      min-width: 0;
+      position: relative;
+      border-left: 1px solid var(--border);
+    }
+    .np-viz-side canvas { width: 100%; height: 100%; display: block; }
+
     .np-cover {
-      width: 160px; height: 160px; border-radius: 12px; overflow: hidden;
+      width: 140px; height: 140px; border-radius: 12px; overflow: hidden;
       background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
     .np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .np-cover .ph { width: 100%; height: 100%; background: linear-gradient(135deg,#201c18,#151310); display: flex; align-items: center; justify-content: center; }
-    .np-cover .ph svg { width: 48px; height: 48px; opacity: 0.2; color: var(--accent); }
+    .np-cover .ph svg { width: 40px; height: 40px; opacity: 0.2; color: var(--accent); }
     .np-info { text-align: center; }
-    .np-title { font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
-    .np-artist { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
-    .np-controls { display: flex; align-items: center; gap: 8px; }
+    .np-title { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+    .np-artist { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .np-controls { display: flex; align-items: center; gap: 6px; }
     .np-controls button {
       background: none; border: none; color: var(--text-muted); cursor: pointer;
-      padding: 8px; border-radius: 50%; transition: all 0.15s;
+      padding: 7px; border-radius: 50%; transition: all 0.15s;
     }
     .np-controls button:hover { color: var(--text); background: var(--accent-subtle); }
     .np-controls .np-play {
-      background: var(--accent); color: var(--bg); width: 48px; height: 48px;
+      background: var(--accent); color: var(--bg); width: 44px; height: 44px;
       border-radius: 50%; display: flex; align-items: center; justify-content: center;
       box-shadow: 0 4px 16px var(--accent-glow);
     }
     .np-controls .np-play:hover { box-shadow: 0 6px 24px var(--accent-glow); transform: scale(1.05); }
-    .np-progress { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 320px; }
-    .np-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; position: relative; }
+    .np-progress { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 300px; }
+    .np-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; }
     .np-bar:hover { height: 6px; }
     .np-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--rose)); border-radius: 2px; width: 0%; transition: width 0.3s linear; }
     .np-time { font-size: 0.68rem; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 30px; }
 
     @media (max-width: 768px) {
-      .np-cover { width: 120px; height: 120px; }
-      .np-hero { padding: 16px 16px 12px; }
-      .np-title { max-width: 220px; }
+      .np-row { flex-direction: column; }
+      .np-viz-side { display: none; }
+      .np-cover { width: 100px; height: 100px; }
+      .np-hero { padding: 14px 16px 10px; }
+      .np-title { max-width: 200px; }
     }
 
     /* ─── Queue Panel ─── */
@@ -392,10 +408,7 @@
       background: var(--accent); cursor: pointer;
     }
 
-    /* ─── Visualizer ─── */
-    .viz-container { position: relative; width: 100%; height: 160px; border-bottom: 1px solid var(--border); background: var(--bg); display: none; flex-shrink: 0; }
-    .viz-container.active { display: block; }
-    .viz-container canvas { width: 100%; height: 100%; display: block; }
+    /* ─── Visualizer (inside np-viz-side) ─── */
     .viz-gear { position: absolute; top: 8px; right: 10px; z-index: 10; }
     .viz-gear-btn {
       width: 28px; height: 28px; border-radius: 50%;
@@ -503,7 +516,7 @@
       .player-controls { order: 3; }
       .progress-container { order: 4; width: 100%; flex-basis: 100%; }
       .volume-control { display: flex; }
-      .viz-container { display: none !important; }
+      .np-viz-side { display: none !important; }
       .settings-btn { display: none !important; }
       .window-controls { display: none !important; }
       .track-item .add-btn { opacity: 0.7; }
@@ -542,32 +555,11 @@
   <div class="tab" data-tab="users" id="usersTab" style="display:none;">Users</div>
 </div>
 
-<!-- Visualizer -->
-<div class="viz-container active" id="vizContainer">
-  <div class="viz-gear">
-    <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer">
-      <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-    </button>
-    <div class="viz-menu" id="vizMenu">
-      <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
-      <div class="viz-menu-item" data-viz="wave">Wave</div>
-      <div class="viz-menu-item" data-viz="starfield">Starfield</div>
-      <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
-      <div class="viz-menu-item" data-viz="glow">Glow</div>
-      <div class="viz-menu-item" data-viz="aurora">Aurora</div>
-      <div class="viz-menu-item" data-viz="matrix">Matrix</div>
-      <div class="viz-menu-item" data-viz="bars">Bars</div>
-      <div class="viz-menu-item" data-viz="circular">Circular</div>
-      <div class="viz-menu-item close-item" id="vizCloseItem">Hide visualizer</div>
-    </div>
-  </div>
-  <canvas id="vizCanvas"></canvas>
-</div>
-
 <!-- Main Area -->
 <div class="main-area">
   <!-- Now Playing Tab -->
   <div class="panel active" id="panel-nowplaying">
+    <div class="np-row">
     <!-- Hero: big cover + track info + controls -->
     <div class="np-hero" id="npHero">
       <div class="np-cover" id="npCover">
@@ -589,6 +581,28 @@
         <span class="np-time" id="npTotal">0:00</span>
       </div>
     </div>
+    <!-- Viz side (desktop only) -->
+    <div class="np-viz-side" id="vizContainer">
+      <div class="viz-gear">
+        <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer">
+          <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+        </button>
+        <div class="viz-menu" id="vizMenu">
+          <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
+          <div class="viz-menu-item" data-viz="wave">Wave</div>
+          <div class="viz-menu-item" data-viz="starfield">Starfield</div>
+          <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
+          <div class="viz-menu-item" data-viz="glow">Glow</div>
+          <div class="viz-menu-item" data-viz="aurora">Aurora</div>
+          <div class="viz-menu-item" data-viz="bars">Bars</div>
+          <div class="viz-menu-item" data-viz="circular">Circular</div>
+          <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
+          <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
+        </div>
+      </div>
+      <canvas id="vizCanvas"></canvas>
+    </div>
+    </div><!-- end np-row -->
     <!-- Queue below -->
     <div class="queue-header">
       <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
@@ -835,7 +849,8 @@ var loadingMore = false;
 
 function renderTracks() {
   var list = document.getElementById('trackList');
-  document.getElementById('trackCount').textContent = tracks.length + ' track' + (tracks.length !== 1 ? 's' : '');
+  var scanText = document.getElementById('scanIndicator').style.display !== 'none' ? ' (scanning...)' : '';
+  document.getElementById('trackCount').textContent = tracks.length + ' track' + (tracks.length !== 1 ? 's' : '') + scanText;
   renderedCount = 0;
   list.innerHTML = '';
   appendTrackBatch(list);
@@ -915,14 +930,18 @@ document.getElementById('trackList').addEventListener('click', function(e) {
 var remoteQueueData = [];
 var remoteQueueRendered = 0;
 
+var remoteQueueRetries = 0;
 function fetchRemoteQueue() {
   fetch('/api/desktop/queue').then(function(r){ return r.json(); }).then(function(data) {
     remoteQueueData = data || [];
     lastQueueHash = ''; // force re-render
     renderQueue();
-    // If empty but desktop says there should be tracks, retry after 2s
-    if (!remoteQueueData.length && lastDesktopState && lastDesktopState.queueLength > 0) {
-      setTimeout(fetchRemoteQueue, 2000);
+    // Retry if empty but desktop reports tracks (up to 5 retries)
+    if (!remoteQueueData.length && lastDesktopState && lastDesktopState.queueLength > 0 && remoteQueueRetries < 5) {
+      remoteQueueRetries++;
+      setTimeout(fetchRemoteQueue, 1500);
+    } else {
+      remoteQueueRetries = 0;
     }
   }).catch(function(){});
 }
@@ -1237,6 +1256,7 @@ function playCurrentTrack() {
   fetch('/api/history/log', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ trackId: trackId }) }).catch(function(){});
 
   updateNowPlayingHero();
+  if (viz) viz.setTrack(track ? track.title : '', track ? track.artist : '');
 
   // Update player bar
   document.getElementById('playerTitle').textContent = track ? track.title : 'Unknown';
@@ -1717,28 +1737,29 @@ if (isDesktop) {
 
   // Show Users tab (desktop only)
   document.getElementById('usersTab').style.display = '';
-
-  function fetchUsers() {
-    fetch('/api/users').then(function(r){ return r.json(); }).then(function(users) {
-      var list = document.getElementById('usersList');
-      if (!users.length) { list.textContent = 'No devices connected'; return; }
-      var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
-      list.innerHTML = users.map(function(u, i) {
-        var color = USER_COLORS[i % USER_COLORS.length];
-        return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">' +
-          '<div style="width:36px;height:36px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#0a0a0b;">' + u.name.charAt(0).toUpperCase() + '</div>' +
-          '<div><div style="font-size:0.85rem;font-weight:500;">' + u.name + '</div><div style="font-size:0.7rem;color:var(--text-dim);">Connected ' + new Date(u.connectedAt).toLocaleTimeString() + '</div></div>' +
-        '</div>';
-      }).join('');
-    }).catch(function(){});
-  }
-
-  // Fetch on tab switch + on users:changed WS event
   document.querySelector('[data-tab="users"]').addEventListener('click', fetchUsers);
+  // Refresh users every 10s while on that tab
+  setInterval(function() { if (document.getElementById('panel-users').classList.contains('active')) fetchUsers(); }, 10000);
 
   // Updates
   window.resonance.onUpdateAvailable(function(d) { showToast('Update available: v' + d.version); });
   window.resonance.onUpdateDownloaded(function(d) { showToast('v' + d.version + ' ready — restart to install'); });
+}
+
+function fetchUsers() {
+  fetch('/api/users').then(function(r){ return r.json(); }).then(function(users) {
+    var list = document.getElementById('usersList');
+    if (!list) return;
+    if (!users.length) { list.textContent = 'No devices connected'; return; }
+    var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
+    list.innerHTML = users.map(function(u, i) {
+      var color = USER_COLORS[i % USER_COLORS.length];
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">' +
+        '<div style="width:36px;height:36px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#0a0a0b;">' + u.name.charAt(0).toUpperCase() + '</div>' +
+        '<div><div style="font-size:0.85rem;font-weight:500;">' + u.name + '</div><div style="font-size:0.7rem;color:var(--text-dim);">Connected ' + new Date(u.connectedAt).toLocaleTimeString() + '</div></div>' +
+      '</div>';
+    }).join('');
+  }).catch(function(){});
 }
 
 function showToast(msg) {
@@ -1880,8 +1901,8 @@ function remoteAddToQueue(trackId) {
     if (msg.type === 'desktop:queue-changed' && !isDesktop) {
       fetchRemoteQueue();
     }
-    // Users changed — refresh if on Users tab
-    if (msg.type === 'users:changed' && isDesktop && typeof fetchUsers === 'function') {
+    // Users changed — refresh
+    if (msg.type === 'users:changed' && isDesktop) {
       fetchUsers();
     }
     // Remote commands (mobile → desktop)
