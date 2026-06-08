@@ -1459,6 +1459,17 @@ fetchTracks();
 fetchGenres();
 // Retry after 3s if library was empty (scan might still be running)
 setTimeout(function() { if (!tracks.length) { fetchTracks(); fetchGenres(); } }, 3000);
+
+// Default tab: Library on desktop (nothing playing), Now Playing on mobile if remote playing
+if (isDesktop) {
+  // Desktop: start on Library (user will go to Now Playing when they start something)
+  document.querySelector('[data-tab="library"]').click();
+} else {
+  // Mobile: check if server is playing → stay on Now Playing, else Library
+  fetch('/api/desktop/state').then(function(r){ return r.json(); }).then(function(d) {
+    if (!d || !d.isPlaying) document.querySelector('[data-tab="library"]').click();
+  }).catch(function() { document.querySelector('[data-tab="library"]').click(); });
+}
 </script>
 </body>
 </html>
