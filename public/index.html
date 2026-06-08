@@ -424,11 +424,11 @@
     .settings-section h4 { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 
     /* ─── Scrollbar ─── */
-    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar { width: 9px; }
     ::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
-    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 5px; border: 2px solid var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 5px; border: 3px solid var(--bg); }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-    .track-list { padding-right: 6px; }
+    .track-list { padding-right: 2px; margin-right: 4px; }
 
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -459,7 +459,7 @@
       .player-controls { order: 3; }
       .progress-container { order: 4; width: 100%; flex-basis: 100%; }
       .volume-control { display: none; }
-      #vizToggleBtn { display: none; }
+      .viz-container { display: none !important; }
       .settings-btn { display: none !important; }
       .window-controls { display: none !important; }
       .track-item .add-btn { opacity: 0.7; }
@@ -574,9 +574,7 @@
     <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style="opacity:0.4"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
     <input type="range" id="volumeSlider" min="0" max="1" step="0.05" value="1">
   </div>
-  <button id="vizToggleBtn" title="Visualizer" style="background:none;border:none;cursor:pointer;padding:6px;border-radius:50%;">
-    <svg viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" width="18" height="18"><path d="M12 2v20M4 10v4M8 6v12M16 8v8M20 11v2"/></svg>
-  </button>
+
 </div>
 
 <!-- Settings Modal -->
@@ -592,7 +590,11 @@
 
     <div class="settings-section">
       <h4>Visualizer</h4>
-      <label>Default mode</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+        <input type="checkbox" id="settingsVizEnabled" checked style="width:16px;height:16px;accent-color:var(--accent);">
+        <span>Show visualizer</span>
+      </label>
+      <label>Style</label>
       <select id="settingsVizMode" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;">
         <option value="starfield">Starfield</option>
         <option value="retrowave">Retrowave</option>
@@ -784,6 +786,39 @@ document.getElementById('trackList').addEventListener('click', function(e) {
   }
 });
 
+// ─── Remote Queue Data (fetched once, updated on change) ────────────────────
+var remoteQueueData = [];
+var remoteQueueRendered = 0;
+
+function fetchRemoteQueue() {
+  fetch('/api/desktop/queue').then(function(r){ return r.json(); }).then(function(data) {
+    remoteQueueData = data || [];
+    lastQueueHash = ''; // force re-render
+    renderQueue();
+  }).catch(function(){});
+}
+
+function appendRemoteQueueBatch(list, sci) {
+  var end = Math.min(remoteQueueRendered + 60, remoteQueueData.length);
+  var html = '';
+  for (var i = remoteQueueRendered; i < end; i++) {
+    var t = remoteQueueData[i];
+    var coverHtml = t.hasCover
+      ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
+      : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
+    html += '<div class="track-item ' + (i === sci ? 'playing' : '') + '" data-rindex="' + i + '">' +
+      coverHtml +
+      '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
+      (t.genre ? '<span class="track-genre" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;">' + esc(t.genre) + '</span>' : '') +
+      '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
+    '</div>';
+  }
+  var frag = document.createElement('div');
+  frag.innerHTML = html;
+  while (frag.firstChild) list.appendChild(frag.firstChild);
+  remoteQueueRendered = end;
+}
+
 // ─── Render Queue ────────────────────────────────────────────────────────────
 var lastQueueHash = '';
 var queueRenderedCount = 0;
@@ -794,36 +829,30 @@ function renderQueue() {
   var countEl = document.getElementById('queueCount');
 
   // On mobile Remote mode, show the server queue
-  if (!isDesktop && mobileMode === 'remote' && lastDesktopState && lastDesktopState.queue) {
-    var sq = lastDesktopState.queue;
-    var sci = lastDesktopState.currentIndex || 0;
-    countEl.textContent = sq.length ? '(' + sq.length + ')' : '';
+  if (!isDesktop && mobileMode === 'remote') {
+    var sci = lastDesktopState ? lastDesktopState.currentIndex || 0 : 0;
+    var qLen = lastDesktopState ? lastDesktopState.queueLength || 0 : 0;
+    countEl.textContent = qLen ? '(' + qLen + ')' : '';
 
-    // Only re-render if queue content changed (avoid image flash)
-    var newHash = sci + ':' + sq.length + ':' + (sq[0] ? sq[0].id : '');
+    if (!remoteQueueData.length) {
+      list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Server queue is empty</div>';
+      return;
+    }
+
+    // Only full re-render if queue data changed
+    var newHash = remoteQueueData.length + ':' + (remoteQueueData[0] ? remoteQueueData[0].id : '');
     if (newHash === lastQueueHash) {
+      // Just update highlight
       var items = list.querySelectorAll('.track-item');
       items.forEach(function(el, i) { el.classList.toggle('playing', i === sci); });
       return;
     }
     lastQueueHash = newHash;
 
-    if (!sq.length) {
-      list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Server queue is empty</div>';
-      return;
-    }
-    // Render max 100 items from server queue (already capped at 200 by broadcast)
-    var renderSq = sq.slice(0, 100);
-    list.innerHTML = renderSq.map(function(t, i) {
-      var coverHtml = t.hasCover
-        ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
-        : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
-      return '<div class="track-item ' + (i === sci ? 'playing' : '') + '">' +
-        coverHtml +
-        '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
-        '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
-      '</div>';
-    }).join('');
+    // Lazy render server queue
+    remoteQueueRendered = 0;
+    list.innerHTML = '';
+    appendRemoteQueueBatch(list, sci);
     return;
   }
 
@@ -846,13 +875,14 @@ function appendQueueBatch(list) {
   var end = Math.min(queueRenderedCount + QUEUE_BATCH, queue.length);
   var html = '';
   for (var i = queueRenderedCount; i < end; i++) {
-    var t = getTrack(queue[i]) || { id: queue[i], title: 'Unknown', artist: '', hasCover: false, duration: 0 };
+    var t = getTrack(queue[i]) || { id: queue[i], title: 'Unknown', artist: '', hasCover: false, duration: 0, genre: null };
     var coverHtml = t.hasCover
       ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
       : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
     html += '<div class="track-item ' + (i === currentIndex ? 'playing' : '') + '" data-qindex="' + i + '">' +
       coverHtml +
       '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
+      (t.genre ? '<span class="track-genre" style="max-width:80px;overflow:hidden;text-overflow:ellipsis;">' + esc(t.genre) + '</span>' : '') +
       '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
     '</div>';
   }
@@ -866,9 +896,15 @@ function appendQueueBatch(list) {
 (function() {
   var list = document.getElementById('queueList');
   list.addEventListener('scroll', function() {
-    if (queueRenderedCount >= queue.length) return;
     if (list.scrollTop + list.clientHeight >= list.scrollHeight - 200) {
-      appendQueueBatch(list);
+      if (!isDesktop && mobileMode === 'remote') {
+        if (remoteQueueRendered < remoteQueueData.length) {
+          var sci = lastDesktopState ? lastDesktopState.currentIndex || 0 : 0;
+          appendRemoteQueueBatch(list, sci);
+        }
+      } else {
+        if (queueRenderedCount < queue.length) appendQueueBatch(list);
+      }
     }
   });
 })();
@@ -876,10 +912,18 @@ function appendQueueBatch(list) {
 // Queue click delegation
 document.getElementById('queueList').addEventListener('click', function(e) {
   var item = e.target.closest('.track-item');
-  if (!item || item.dataset.qindex == null) return;
-  currentIndex = parseInt(item.dataset.qindex);
-  playCurrentTrack();
-  renderQueue();
+  if (!item) return;
+  // Remote queue click → tell desktop to play that index
+  if (item.dataset.rindex != null && !isDesktop && mobileMode === 'remote') {
+    sendRemoteCommand('play-index', { index: parseInt(item.dataset.rindex) });
+    return;
+  }
+  // Local queue click
+  if (item.dataset.qindex != null) {
+    currentIndex = parseInt(item.dataset.qindex);
+    playCurrentTrack();
+    renderQueue();
+  }
 });
 
 // ─── Genre Filter ────────────────────────────────────────────────────────────
@@ -1154,7 +1198,7 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
   });
 });
 document.getElementById('vizCloseItem').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.remove('open'); toggleViz(); });
-document.getElementById('vizToggleBtn').addEventListener('click', toggleViz);
+// vizToggleBtn removed — toggle via Settings
 
 // Auto-init on first play
 audio.addEventListener('play', function() { if (!vizInitialized) initViz(); if (vizVisible && viz) viz.start(); }, { once: true });
@@ -1172,6 +1216,7 @@ async function openSettings() {
     var cfg = await window.resonance.getConfig();
     settingsFolders = cfg.musicFolders || [];
     document.getElementById('settingsVizMode').value = vizMode;
+    document.getElementById('settingsVizEnabled').checked = vizVisible;
     var ver = await window.resonance.getVersion();
     document.getElementById('aboutText').textContent = 'Resonance v' + ver + ' — by n3lio';
 
@@ -1229,14 +1274,18 @@ document.getElementById('addFolderBtn').addEventListener('click', async function
 
 document.getElementById('settingsSave').addEventListener('click', async function() {
   vizMode = document.getElementById('settingsVizMode').value;
+  vizVisible = document.getElementById('settingsVizEnabled').checked;
   if (viz) viz.setMode(vizMode);
   document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){ i.classList.toggle('active', i.dataset.viz === vizMode); });
+  document.getElementById('vizContainer').classList.toggle('active', vizVisible);
+  if (vizVisible && viz) { viz.resize(); viz.start(); }
+  else if (viz) viz.stop();
 
   // Close modal immediately for snappy UX
   settingsModal.classList.remove('open');
 
   if (window.resonance) {
-    await window.resonance.setConfig({ musicFolders: settingsFolders });
+    await window.resonance.setConfig({ musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode });
   }
   // Trigger rescan (indicator shows via WS)
   api('/rescan', 'POST').then(function() {
@@ -1249,6 +1298,12 @@ document.getElementById('settingsSave').addEventListener('click', async function
 
 // ─── Electron Integration ───────────────────────────────────────────────────
 if (isDesktop) {
+  // Load persisted viz settings
+  window.resonance.getConfig().then(function(cfg) {
+    if (cfg.vizEnabled === false) { vizVisible = false; document.getElementById('vizContainer').classList.remove('active'); }
+    if (cfg.vizMode) { vizMode = cfg.vizMode; if (viz) viz.setMode(vizMode); }
+  });
+
   // Window controls in header
   document.getElementById('winControls').classList.add('visible');
   document.getElementById('tbClose').addEventListener('click', function() { window.resonance.close(); });
@@ -1281,10 +1336,8 @@ if (isDesktop) {
       progress: audio.currentTime || 0,
       duration: audio.duration || 0,
       hasCover: track ? track.hasCover : false,
-      queue: queue.slice(0, 200).map(function(id) {
-        var t = getTrack(id);
-        return t ? { id: t.id, title: t.title, artist: t.artist, hasCover: t.hasCover, duration: t.duration } : null;
-      }).filter(Boolean),
+      genre: track ? track.genre : '',
+      queueLength: queue.length,
       currentIndex: currentIndex,
     };
     fetch('/api/desktop/state', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).catch(function(){});
@@ -1296,6 +1349,23 @@ if (isDesktop) {
   audio.addEventListener('ended', broadcastDesktopState);
   // Broadcast progress every 1s
   setInterval(function() { if (isPlaying) broadcastDesktopState(); }, 1000);
+
+  // Post full queue to server (only when queue content changes)
+  var lastQueueSent = '';
+  function broadcastDesktopQueue() {
+    var sig = queue.length + ':' + (queue[0] || '') + ':' + (queue[queue.length-1] || '');
+    if (sig === lastQueueSent) return;
+    lastQueueSent = sig;
+    var queueData = queue.map(function(id) {
+      var t = getTrack(id);
+      return t ? { id: t.id, title: t.title, artist: t.artist, hasCover: t.hasCover, duration: t.duration, genre: t.genre } : null;
+    }).filter(Boolean);
+    fetch('/api/desktop/queue', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(queueData) }).catch(function(){});
+  }
+
+  // Hook into renderQueue to broadcast queue changes
+  var _origRenderQueue = renderQueue;
+  renderQueue = function() { _origRenderQueue(); broadcastDesktopQueue(); };
 
   // Listen for remote commands from mobile
   // (via WS — handled below in WS section)
@@ -1421,13 +1491,16 @@ function remoteAddToQueue(trackId) {
       if (msg.data.isPlaying && !userPickedStream) setMobileMode('remote');
       if (mobileMode === 'remote') {
         updatePlayerFromDesktop(msg.data);
-        // Only re-render queue if something meaningful changed (not just progress)
-        var queueChanged = !prevState ||
-          prevState.currentIndex !== msg.data.currentIndex ||
-          (prevState.queue ? prevState.queue.length : 0) !== (msg.data.queue ? msg.data.queue.length : 0) ||
-          (prevState.queue && msg.data.queue && prevState.queue[0] && msg.data.queue[0] && prevState.queue[0].id !== msg.data.queue[0].id);
-        if (queueChanged) renderQueue();
+        // Only update highlight (not full re-render — queue fetched separately)
+        if (prevState && prevState.currentIndex !== msg.data.currentIndex) {
+          var items = document.getElementById('queueList').querySelectorAll('.track-item');
+          items.forEach(function(el, i) { el.classList.toggle('playing', i === msg.data.currentIndex); });
+        }
       }
+    }
+    // Desktop queue changed → refetch once
+    if (msg.type === 'desktop:queue-changed' && !isDesktop) {
+      fetchRemoteQueue();
     }
     // Remote commands (mobile → desktop)
     if (msg.type === 'remote:command' && isDesktop) {
@@ -1458,6 +1531,10 @@ function remoteAddToQueue(trackId) {
         queue.push(msg.data.trackId);
         renderQueue();
       }
+      if (cmd === 'play-index' && msg.data.index != null) {
+        var pi = parseInt(msg.data.index);
+        if (pi >= 0 && pi < queue.length) { currentIndex = pi; playCurrentTrack(); renderQueue(); }
+      }
       if (cmd === 'play-playlist' && msg.data.playlistId) {
         api('/playlists/' + msg.data.playlistId).then(function(pl) {
           pl.tracks.forEach(cacheTrack);
@@ -1486,11 +1563,12 @@ if (!isDesktop) {
     });
   });
 
-  // Fetch initial desktop state
+  // Fetch initial desktop state + queue
   fetch('/api/desktop/state').then(function(r){ return r.json(); }).then(function(d) {
     lastDesktopState = d;
     if (d && d.isPlaying) setMobileMode('remote');
   }).catch(function(){});
+  fetchRemoteQueue();
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────

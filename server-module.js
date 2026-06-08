@@ -514,6 +514,18 @@ function startServer(port) {
       res.json(desktopState);
     });
 
+    // Full queue (fetched once by mobile, not every second)
+    app.get('/api/desktop/queue', (req, res) => {
+      res.json(desktopState.queue || []);
+    });
+
+    // Endpoint to update queue (desktop posts full queue here on change)
+    app.post('/api/desktop/queue', (req, res) => {
+      desktopState.queue = req.body || [];
+      broadcast({ type: 'desktop:queue-changed', data: { length: desktopState.queue.length } });
+      res.json({ ok: true });
+    });
+
     // Remote commands (mobile → desktop via WS broadcast)
     app.post('/api/remote/command', (req, res) => {
       const { command } = req.body;
