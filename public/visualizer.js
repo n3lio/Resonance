@@ -30,9 +30,9 @@ class Visualizer {
 
   resize() {
     const rect = this.canvas.parentElement.getBoundingClientRect();
-    this.canvas.width = rect.width * window.devicePixelRatio;
-    this.canvas.height = rect.height * window.devicePixelRatio;
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    // Use 1:1 pixel ratio for performance (no HiDPI scaling needed for viz)
+    this.canvas.width = rect.width;
+    this.canvas.height = rect.height;
     this.w = rect.width;
     this.h = rect.height;
   }

@@ -45,46 +45,29 @@
       overflow: hidden;
     }
 
-    /* ─── Custom Title Bar ─── */
-    .titlebar {
+    /* ─── Window Controls (in header) ─── */
+    .window-controls {
       display: none;
-      height: 38px;
-      background: #080808;
-      -webkit-app-region: drag;
-      align-items: center;
-      padding: 0 12px;
-      flex-shrink: 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .titlebar.visible { display: flex; }
-
-    .titlebar-title {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      flex: 1;
-      pointer-events: none;
-    }
-
-    .titlebar-controls {
-      display: flex;
       gap: 8px;
+      align-items: center;
+      margin-left: 8px;
       -webkit-app-region: no-drag;
     }
+    .window-controls.visible { display: flex; }
 
-    .titlebar-btn {
-      width: 14px;
-      height: 14px;
+    .win-btn {
+      width: 13px;
+      height: 13px;
       border-radius: 50%;
       border: none;
       cursor: pointer;
-      opacity: 0.9;
+      opacity: 0.85;
       transition: opacity 0.15s;
     }
-    .titlebar-btn:hover { opacity: 1; }
-    .titlebar-btn.minimize { background: #e8a435; }
-    .titlebar-btn.maximize { background: #7ac47a; }
-    .titlebar-btn.close { background: #e05555; }
+    .win-btn:hover { opacity: 1; }
+    .win-btn.minimize { background: #e8a435; }
+    .win-btn.maximize { background: #7ac47a; }
+    .win-btn.close { background: #e05555; }
 
     /* ─── Header ─── */
     header {
@@ -95,7 +78,11 @@
       gap: 12px;
       background: var(--bg-warm);
       flex-shrink: 0;
+      -webkit-app-region: drag;
     }
+
+    header * { -webkit-app-region: no-drag; }
+    header h1 { -webkit-app-region: drag; }
 
     header h1 {
       font-size: 1.05rem;
@@ -442,6 +429,8 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-light); }
 
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
       .player-info { width: 100px; }
@@ -452,18 +441,9 @@
 </head>
 <body>
 
-<!-- Custom Title Bar (Electron) -->
-<div class="titlebar" id="titlebar">
-  <span class="titlebar-title">Resonance</span>
-  <div class="titlebar-controls">
-    <button class="titlebar-btn minimize" id="tbMin" title="Minimize"></button>
-    <button class="titlebar-btn maximize" id="tbMax" title="Maximize"></button>
-    <button class="titlebar-btn close" id="tbClose" title="Close"></button>
-  </div>
-</div>
-
 <header>
   <h1>Resonance</h1>
+  <span class="scan-indicator" id="scanIndicator" style="display:none;font-size:0.72rem;color:var(--accent);animation:pulse 1.2s infinite;">Scanning...</span>
   <div class="header-right">
     <button class="server-pill" id="serverPill" style="display:none">
       <span class="dot"></span>
@@ -472,6 +452,11 @@
     <button class="settings-btn" id="settingsBtn" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
+    <div class="window-controls" id="winControls">
+      <button class="win-btn minimize" id="tbMin" title="Minimize"></button>
+      <button class="win-btn maximize" id="tbMax" title="Maximize"></button>
+      <button class="win-btn close" id="tbClose" title="Close"></button>
+    </div>
   </div>
 </header>
 
@@ -1042,8 +1027,8 @@ document.getElementById('settingsSave').addEventListener('click', async function
 
 // ─── Electron Integration ───────────────────────────────────────────────────
 if (window.resonance && window.resonance.isElectron) {
-  // Title bar
-  document.getElementById('titlebar').classList.add('visible');
+  // Window controls in header
+  document.getElementById('winControls').classList.add('visible');
   document.getElementById('tbClose').addEventListener('click', function() { window.resonance.close(); });
   document.getElementById('tbMin').addEventListener('click', function() { window.resonance.minimize(); });
   document.getElementById('tbMax').addEventListener('click', function() { window.resonance.maximize(); });
@@ -1078,6 +1063,29 @@ function showToast(msg) {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(s) { if (!s||isNaN(s)) return '0:00'; var m=Math.floor(s/60); var sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
 function esc(str) { var d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
+
+// ─── WebSocket (scan notifications + library updates) ────────────────────────
+(function connectWS() {
+  if (!location.host) return;
+  var ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host);
+  ws.onmessage = function(e) {
+    var msg = JSON.parse(e.data);
+    if (msg.type === 'scan:start') {
+      document.getElementById('scanIndicator').style.display = 'inline';
+    }
+    if (msg.type === 'scan:done') {
+      document.getElementById('scanIndicator').style.display = 'none';
+      fetchTracks();
+      fetchGenres();
+    }
+    if (msg.type === 'library-updated') {
+      fetchTracks();
+      fetchGenres();
+    }
+  };
+  ws.onclose = function() { setTimeout(connectWS, 3000); };
+  ws.onerror = function() { ws.close(); };
+})();
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();

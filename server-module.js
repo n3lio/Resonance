@@ -60,10 +60,21 @@ if (!fs.existsSync(COVERS_DIR)) {
 
 // ─── Library Scanner ─────────────────────────────────────────────────────────
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.m4a', '.flac', '.ogg', '.wav', '.aac']);
-const EXCLUDE_FOLDERS = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
+let scanning = false;
 
 async function scanFolders() {
+  if (scanning) { console.log('Scan already in progress, skipping'); return library; }
+  scanning = true;
+
+  // Reload config (may have been updated via settings)
+  try {
+    config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json'), 'utf8'));
+  } catch (e) { /* keep current config */ }
+
+  const excludeFolders = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
+
   console.log('Scanning music folders...');
+  broadcast({ type: 'scan:start' });
   library = [];
   genres = new Set();
 
@@ -81,14 +92,16 @@ async function scanFolders() {
       console.warn(`Folder not found: ${resolved}`);
       continue;
     }
-    await scanDirectory(resolved);
+    await scanDirectory(resolved, excludeFolders);
   }
 
+  scanning = false;
   console.log(`Found ${library.length} tracks, ${genres.size} genres`);
+  broadcast({ type: 'scan:done', data: { count: library.length, genres: genres.size } });
   return library;
 }
 
-async function scanDirectory(dir) {
+async function scanDirectory(dir, excludeFolders) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -97,12 +110,16 @@ async function scanDirectory(dir) {
     return;
   }
 
-  for (const entry of entries) {
+  for (let ei = 0; ei < entries.length; ei++) {
+    const entry = entries[ei];
     const fullPath = path.join(dir, entry.name);
 
+    // Yield every 50 files to keep event loop responsive (visualizer, WS)
+    if (ei % 50 === 0) await new Promise(r => setImmediate(r));
+
     if (entry.isDirectory()) {
-      if (EXCLUDE_FOLDERS.has(entry.name.toLowerCase())) continue;
-      await scanDirectory(fullPath);
+      if (excludeFolders.has(entry.name.toLowerCase())) continue;
+      await scanDirectory(fullPath, excludeFolders);
     } else if (AUDIO_EXTENSIONS.has(path.extname(entry.name).toLowerCase())) {
       try {
         const metadata = await parseFile(fullPath);
@@ -587,7 +604,8 @@ function startServer(port) {
               const ext = path.extname(filename).toLowerCase();
               if (!AUDIO_EXTENSIONS.has(ext)) return;
               const parts = filename.split(path.sep);
-              if (parts.some(p => EXCLUDE_FOLDERS.has(p.toLowerCase()))) return;
+              const excl = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
+              if (parts.some(p => excl.has(p.toLowerCase()))) return;
               clearTimeout(rescanTimeout);
               rescanTimeout = setTimeout(async () => {
                 console.log('Changes detected, rescanning...');
