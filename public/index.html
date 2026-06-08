@@ -503,16 +503,15 @@
       <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
     </button>
     <div class="viz-menu" id="vizMenu">
-      <div class="viz-menu-item active" data-viz="starfield">Starfield</div>
-      <div class="viz-menu-item" data-viz="glow">Glow</div>
-      <div class="viz-menu-item" data-viz="nebula">Nebula</div>
-      <div class="viz-menu-item" data-viz="pulse">Pulse</div>
-      <div class="viz-menu-item" data-viz="aurora">Aurora</div>
+      <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
+      <div class="viz-menu-item" data-viz="wave">Wave</div>
+      <div class="viz-menu-item" data-viz="starfield">Starfield</div>
       <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
+      <div class="viz-menu-item" data-viz="glow">Glow</div>
+      <div class="viz-menu-item" data-viz="aurora">Aurora</div>
       <div class="viz-menu-item" data-viz="matrix">Matrix</div>
       <div class="viz-menu-item" data-viz="bars">Bars</div>
       <div class="viz-menu-item" data-viz="circular">Circular</div>
-      <div class="viz-menu-item" data-viz="wave">Wave</div>
       <div class="viz-menu-item close-item" id="vizCloseItem">Hide visualizer</div>
     </div>
   </div>
@@ -608,16 +607,15 @@
       </label>
       <label>Style</label>
       <select id="settingsVizMode" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;">
-        <option value="starfield">Starfield</option>
-        <option value="glow">Glow</option>
         <option value="nebula">Nebula</option>
-        <option value="pulse">Pulse</option>
-        <option value="aurora">Aurora</option>
+        <option value="wave">Wave</option>
+        <option value="starfield">Starfield</option>
         <option value="spectrum">Spectrum</option>
+        <option value="glow">Glow</option>
+        <option value="aurora">Aurora</option>
         <option value="matrix">Matrix</option>
         <option value="bars">Bars</option>
         <option value="circular">Circular</option>
-        <option value="wave">Wave</option>
       </select>
     </div>
 
@@ -1295,7 +1293,7 @@ document.addEventListener('keydown', function(e) {
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 var vizContainer = document.getElementById('vizContainer');
 var vizCanvas = document.getElementById('vizCanvas');
-var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'starfield';
+var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'nebula';
 
 function initViz() {
   if (vizInitialized) return;
@@ -1654,6 +1652,10 @@ function remoteAddToQueue(trackId) {
     // Desktop queue changed → refetch once
     if (msg.type === 'desktop:queue-changed' && !isDesktop) {
       fetchRemoteQueue();
+    }
+    // Users changed — refresh if on Users tab
+    if (msg.type === 'users:changed' && isDesktop && typeof fetchUsers === 'function') {
+      fetchUsers();
     }
     // Remote commands (mobile → desktop)
     if (msg.type === 'remote:command' && isDesktop) {
