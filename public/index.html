@@ -642,7 +642,8 @@
 <script src="visualizer.js"></script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
-var tracks = [];
+var tracks = [];        // Currently displayed/filtered tracks in Library
+var trackCache = {};    // ID → track object (all tracks ever seen)
 var allGenres = [];
 var playlists = [];
 var queue = [];
@@ -653,6 +654,9 @@ var isDesktop = !!(window.resonance && window.resonance.isElectron);
 var mobileMode = 'remote';
 var lastDesktopState = null;
 var userPickedStream = false;
+
+function cacheTrack(t) { if (t && t.id != null) trackCache[t.id] = t; }
+function getTrack(id) { return trackCache[id] || null; }
 
 var PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 
@@ -670,7 +674,11 @@ async function fetchTracks(q, genre) {
   if (q) p.push('q=' + encodeURIComponent(q));
   if (genre) p.push('genre=' + encodeURIComponent(genre));
   if (p.length) url += '?' + p.join('&');
-  try { tracks = await api(url); renderTracks(); } catch(e) { console.warn('fetchTracks:', e); }
+  try {
+    tracks = await api(url);
+    tracks.forEach(cacheTrack);
+    renderTracks();
+  } catch(e) { console.warn('fetchTracks:', e); }
 }
 
 async function fetchGenres() {
@@ -776,11 +784,22 @@ document.getElementById('trackList').addEventListener('click', function(e) {
 });
 
 // ─── Render Queue ────────────────────────────────────────────────────────────
+var lastQueueHash = '';
+
 function renderQueue() {
   var list = document.getElementById('queueList');
 
   // On mobile Remote mode, show the server queue
   if (!isDesktop && mobileMode === 'remote' && lastDesktopState && lastDesktopState.queue) {
+    // Only re-render if queue content changed (avoid image flash)
+    var newHash = lastDesktopState.currentIndex + ':' + lastDesktopState.queue.map(function(t){return t.id}).join(',');
+    if (newHash === lastQueueHash) {
+      // Just update the "playing" highlight without full re-render
+      var items = list.querySelectorAll('.track-item');
+      items.forEach(function(el, i) { el.classList.toggle('playing', i === lastDesktopState.currentIndex); });
+      return;
+    }
+    lastQueueHash = newHash;
     var sq = lastDesktopState.queue;
     var sci = lastDesktopState.currentIndex || 0;
     if (!sq.length) {
@@ -800,13 +819,14 @@ function renderQueue() {
     return;
   }
 
-  // Local queue
+  // Local queue (desktop always, or mobile in Stream mode)
+  lastQueueHash = '';
   if (!queue.length) {
     list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Queue is empty — pick a track!</div>';
     return;
   }
   list.innerHTML = queue.map(function(trackId, i) {
-    var t = tracks.find(function(x){ return x.id === trackId; }) || { title: 'Unknown', artist: '', hasCover: false, duration: 0 };
+    var t = getTrack(trackId) || { id: trackId, title: 'Unknown', artist: '', hasCover: false, duration: 0 };
     var coverHtml = t.hasCover
       ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
       : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
@@ -861,11 +881,11 @@ function renderPlaylists() {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       api('/playlists/' + btn.dataset.id).then(function(pl) {
+        pl.tracks.forEach(cacheTrack);
         queue = pl.tracks.map(function(t){ return t.id; });
         currentIndex = 0;
         playCurrentTrack();
         renderQueue();
-        // Switch to Now Playing
         document.querySelector('[data-tab="nowplaying"]').click();
       });
     });
@@ -907,7 +927,7 @@ document.getElementById('plCreate').addEventListener('click', async function() {
 function playCurrentTrack() {
   if (currentIndex < 0 || currentIndex >= queue.length) return;
   var trackId = queue[currentIndex];
-  var track = tracks.find(function(t){ return t.id === trackId; });
+  var track = getTrack(trackId);
 
   audio.src = '/api/stream/' + trackId;
   audio.load();
@@ -1006,6 +1026,10 @@ document.getElementById('shuffleQueue').addEventListener('click', function() {
 });
 
 document.getElementById('clearQueue').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') {
+    sendRemoteCommand('clear');
+    return;
+  }
   queue = []; currentIndex = -1;
   audio.pause(); audio.removeAttribute('src');
   isPlaying = false; updatePlayBtn();
@@ -1206,7 +1230,7 @@ if (isDesktop) {
   // Broadcast desktop player state to server (so mobile can see it)
   function broadcastDesktopState() {
     var trackId = queue[currentIndex];
-    var track = trackId != null ? tracks.find(function(t){ return t.id === trackId; }) : null;
+    var track = trackId != null ? getTrack(trackId) : null;
     var payload = {
       trackId: trackId != null ? trackId : null,
       title: track ? track.title : '',
@@ -1216,7 +1240,7 @@ if (isDesktop) {
       duration: audio.duration || 0,
       hasCover: track ? track.hasCover : false,
       queue: queue.slice(0, 200).map(function(id) {
-        var t = tracks.find(function(x){ return x.id === id; });
+        var t = getTrack(id);
         return t ? { id: t.id, title: t.title, artist: t.artist, hasCover: t.hasCover, duration: t.duration } : null;
       }).filter(Boolean),
       currentIndex: currentIndex,
@@ -1263,13 +1287,14 @@ function setMobileMode(mode) {
     bar.classList.add('remote-mode');
     label.style.display = 'block';
     label.textContent = 'REMOTE';
-    // Show desktop state
     if (lastDesktopState) updatePlayerFromDesktop(lastDesktopState);
   } else {
     bar.classList.remove('remote-mode');
     label.style.display = 'none';
     updatePlayerFromLocal();
   }
+  lastQueueHash = ''; // Force re-render
+  renderQueue();
 }
 
 function updatePlayerFromDesktop(d) {
@@ -1349,6 +1374,7 @@ function remoteAddToQueue(trackId) {
       if (cmd === 'pause') { audio.pause(); isPlaying = false; updatePlayBtn(); }
       if (cmd === 'next') document.getElementById('nextBtn').click();
       if (cmd === 'prev') document.getElementById('prevBtn').click();
+      if (cmd === 'clear') { document.getElementById('clearQueue').click(); }
       if (cmd === 'play-track' && msg.data.trackId != null) {
         var idx = tracks.findIndex(function(t){ return t.id === msg.data.trackId; });
         if (idx >= 0) { queue = tracks.map(function(t){return t.id}); currentIndex = idx; playCurrentTrack(); renderQueue(); }
