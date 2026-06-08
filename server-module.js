@@ -14,12 +14,40 @@ let wssInstance = null;
 // ─── Data directory (set by main.js before startServer, or fallback to __dirname)
 let DATA_DIR = __dirname;
 
+// Default smart playlists (created on first run)
+const DEFAULT_PLAYLISTS = [
+  { name: 'Hip-Hop', genreMatch: ['hip-hop','hiphop','rap','hip hop'] },
+  { name: 'Electro', genreMatch: ['electro','electronic','edm','house','techno','trance','dubstep'] },
+  { name: 'Reggae', genreMatch: ['reggae','ragga','dancehall','dub','ska'] },
+  { name: 'Rock', genreMatch: ['rock','punk','metal','grunge','hard rock'] },
+  { name: 'Alternative', genreMatch: ['alternative','indie','alt'] },
+  { name: 'Pop', genreMatch: ['pop','synth-pop','synthpop'] },
+  { name: 'Latino', genreMatch: ['latin','reggaeton','salsa','bachata','cumbia','latino'] },
+];
+
+function createDefaultPlaylists() {
+  if (playlists.length > 0) return; // Don't override existing
+  for (const def of DEFAULT_PLAYLISTS) {
+    playlists.push({
+      id: crypto.randomUUID(),
+      name: def.name,
+      type: 'smart',
+      genreMatch: def.genreMatch,
+      trackIds: [], // Will be resolved at play time from current library
+      createdAt: new Date().toISOString(),
+    });
+  }
+  savePlaylists();
+  console.log('Created default smart playlists');
+}
+
 function setDataDir(dir) {
   DATA_DIR = dir;
   // Reload config + playlists + history from the correct location
   config = loadConfig();
   playlists = loadPlaylists();
   history = loadHistory();
+  createDefaultPlaylists();
   // Ensure covers dir exists
   const coversDir = path.join(DATA_DIR, '__covers');
   if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
@@ -617,17 +645,30 @@ function startServer(port) {
       res.json(playlists.map(p => ({
         id: p.id,
         name: p.name,
-        trackCount: p.trackIds.length,
+        type: p.type || 'manual',
+        trackCount: p.type === 'smart' ? resolvePlaylistTracks(p).length : (p.trackIds || []).length,
         createdAt: p.createdAt,
       })));
     });
 
+    // Resolve smart playlist track IDs from current library
+    function resolvePlaylistTracks(pl) {
+      if (pl.type === 'smart' && pl.genreMatch) {
+        return library
+          .filter(t => t.genre && pl.genreMatch.some(m => t.genre.toLowerCase().includes(m)))
+          .map(t => t.id);
+      }
+      return pl.trackIds || [];
+    }
+
     app.get('/api/playlists/:id', (req, res) => {
       const pl = playlists.find(p => p.id === req.params.id);
       if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+      const ids = resolvePlaylistTracks(pl);
       res.json({
         ...pl,
-        tracks: pl.trackIds.map(id => library[id]).filter(Boolean).map(({ path: _, ...rest }) => rest),
+        trackCount: ids.length,
+        tracks: ids.map(id => library[id]).filter(Boolean).map(({ path: _, ...rest }) => rest),
       });
     });
 
@@ -684,7 +725,7 @@ function startServer(port) {
     app.post('/api/playlists/:id/play', (req, res) => {
       const pl = playlists.find(p => p.id === req.params.id);
       if (!pl) return res.status(404).json({ error: 'Playlist not found' });
-      queue = [...pl.trackIds];
+      queue = resolvePlaylistTracks(pl);
       currentIndex = 0;
       isPlaying = true;
       if (playMode === 'local') playLocal();
@@ -700,11 +741,12 @@ function startServer(port) {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
-    // Start listening
+    // Start listening — bind to LAN or localhost based on config
     const usePort = port || config.port || 3000;
-    serverInstance = app.listen(usePort, '0.0.0.0', () => {
+    const bindAddr = config.lanEnabled === false ? '127.0.0.1' : '0.0.0.0';
+    serverInstance = app.listen(usePort, bindAddr, () => {
       const lanIp = getLanIp();
-      console.log(`Resonance server started on http://${lanIp}:${usePort}`);
+      console.log(`Resonance server started on ${bindAddr}:${usePort} (LAN: ${bindAddr === '0.0.0.0' ? 'ON' : 'OFF'})`);
 
       // WebSocket + connected users tracking
       const connectedUsers = new Map(); // ws → { id, name, connectedAt }
