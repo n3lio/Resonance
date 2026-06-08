@@ -566,7 +566,10 @@ function startServer(port) {
 
     // ─── Desktop State (Electron pushes its player state here) ───────────────
     app.post('/api/desktop/state', (req, res) => {
+      // Merge — preserve .queue (posted separately via /api/desktop/queue)
+      const savedQueue = desktopState.queue;
       desktopState = req.body || {};
+      desktopState.queue = savedQueue;
       broadcast({ type: 'desktop:state', data: desktopState });
       res.json({ ok: true });
     });
