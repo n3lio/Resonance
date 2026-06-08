@@ -493,6 +493,7 @@
   <div class="tab active" data-tab="nowplaying">Now Playing</div>
   <div class="tab" data-tab="library">Library</div>
   <div class="tab" data-tab="playlists">Playlists</div>
+  <div class="tab" data-tab="users" id="usersTab" style="display:none;">Users</div>
 </div>
 
 <!-- Visualizer -->
@@ -549,6 +550,14 @@
       <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
     </div>
     <div class="playlists-view" id="playlistsView"></div>
+  </div>
+
+  <!-- Users Tab (desktop only) -->
+  <div class="panel" id="panel-users">
+    <div style="padding:20px;">
+      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:14px;">Connected Devices</h2>
+      <div id="usersList"></div>
+    </div>
   </div>
 </div>
 
@@ -936,15 +945,32 @@ document.getElementById('queueList').addEventListener('click', function(e) {
 });
 
 // ─── Genre Filter ────────────────────────────────────────────────────────────
+// Genre super-groups (match any genre containing these keywords)
+var GENRE_GROUPS = [
+  { label: 'Hip-Hop', match: ['hip-hop','hiphop','rap'] },
+  { label: 'Electro', match: ['electro','electronic','edm','house','techno','trance','dubstep','dnb','drum'] },
+  { label: 'Rock', match: ['rock','punk','metal','grunge','indie rock'] },
+  { label: 'R&B / Soul', match: ['r&b','rnb','soul','neo-soul','neo soul'] },
+  { label: 'Reggae', match: ['reggae','dancehall','dub'] },
+  { label: 'Jazz', match: ['jazz','bebop','swing'] },
+  { label: 'Classical', match: ['classical','orchestra','symphony'] },
+  { label: 'Pop', match: ['pop'] },
+  { label: 'Blues', match: ['blues'] },
+  { label: 'Alternative', match: ['alternative','alt'] },
+];
+
 function renderGenreFilter() {
   var sel = document.getElementById('genreFilter');
-  sel.innerHTML = '<option value="">All genres</option>' +
-    allGenres.map(function(g) { return '<option value="' + esc(g) + '">' + esc(g) + '</option>'; }).join('');
+  var html = '<option value="">All genres</option>';
+  html += '<optgroup label="─ Categories ─">';
+  GENRE_GROUPS.forEach(function(g) { html += '<option value="group:' + g.label + '">' + g.label + '</option>'; });
+  html += '</optgroup>';
+  html += '<optgroup label="─ All genres ─">';
+  allGenres.forEach(function(g) { html += '<option value="' + esc(g) + '">' + esc(g) + '</option>'; });
+  html += '</optgroup>';
+  sel.innerHTML = html;
 }
-document.getElementById('genreFilter').addEventListener('change', function() {
-  // Trigger the search filter (handles genre + query combo)
-  document.getElementById('search').dispatchEvent(new Event('input'));
-});
+document.getElementById('genreFilter').addEventListener('change', applyFilters);
 
 // ─── Playlists ───────────────────────────────────────────────────────────────
 // Playlist color palette (high contrast, on-brand)
@@ -1029,6 +1055,9 @@ function playCurrentTrack() {
   audio.load();
   audio.play().catch(function(){});
   isPlaying = true;
+
+  // Log to history
+  fetch('/api/history/log', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ trackId: trackId }) }).catch(function(){});
 
   // Update player bar
   document.getElementById('playerTitle').textContent = track ? track.title : 'Unknown';
@@ -1223,19 +1252,36 @@ function fuzzyFilter(query) {
 }
 
 var searchTimeout;
-document.getElementById('search').addEventListener('input', function(e) {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(function(){
-    var q = e.target.value.trim();
-    var genre = document.getElementById('genreFilter').value;
-    var filtered = fuzzyFilter(q);
-    if (genre) {
+
+function applyFilters() {
+  var q = document.getElementById('search').value.trim();
+  var genre = document.getElementById('genreFilter').value;
+  var filtered = fuzzyFilter(q);
+
+  if (genre) {
+    if (genre.startsWith('group:')) {
+      // Super-group: match any keyword from the group
+      var groupName = genre.slice(6);
+      var group = GENRE_GROUPS.find(function(g){ return g.label === groupName; });
+      if (group) {
+        filtered = filtered.filter(function(t) {
+          if (!t.genre) return false;
+          var gl = t.genre.toLowerCase();
+          return group.match.some(function(m) { return gl.includes(m); });
+        });
+      }
+    } else {
       var gl = genre.toLowerCase();
       filtered = filtered.filter(function(t) { return t.genre && t.genre.toLowerCase().includes(gl); });
     }
-    tracks = filtered;
-    renderTracks();
-  }, 200);
+  }
+  tracks = filtered;
+  renderTracks();
+}
+
+document.getElementById('search').addEventListener('input', function() {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(applyFilters, 200);
 });
 
 // ─── Keyboard ────────────────────────────────────────────────────────────────
@@ -1453,6 +1499,27 @@ if (isDesktop) {
 
   // Listen for remote commands from mobile
   // (via WS — handled below in WS section)
+
+  // Show Users tab (desktop only)
+  document.getElementById('usersTab').style.display = '';
+
+  function fetchUsers() {
+    fetch('/api/users').then(function(r){ return r.json(); }).then(function(users) {
+      var list = document.getElementById('usersList');
+      if (!users.length) { list.textContent = 'No devices connected'; return; }
+      var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
+      list.innerHTML = users.map(function(u, i) {
+        var color = USER_COLORS[i % USER_COLORS.length];
+        return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">' +
+          '<div style="width:36px;height:36px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#0a0a0b;">' + u.name.charAt(0).toUpperCase() + '</div>' +
+          '<div><div style="font-size:0.85rem;font-weight:500;">' + u.name + '</div><div style="font-size:0.7rem;color:var(--text-dim);">Connected ' + new Date(u.connectedAt).toLocaleTimeString() + '</div></div>' +
+        '</div>';
+      }).join('');
+    }).catch(function(){});
+  }
+
+  // Fetch on tab switch + on users:changed WS event
+  document.querySelector('[data-tab="users"]').addEventListener('click', fetchUsers);
 
   // Updates
   window.resonance.onUpdateAvailable(function(d) { showToast('Update available: v' + d.version); });

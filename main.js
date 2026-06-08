@@ -179,11 +179,45 @@ function setupAutoUpdater() {
   });
 }
 
+// ─── Splash Screen ──────────────────────────────────────────────────────────
+let splashWindow = null;
+
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width: 340,
+    height: 220,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    webPreferences: { nodeIntegration: false },
+  });
+
+  const splashHtml = `data:text/html,
+    <style>
+      body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:'Segoe UI',sans-serif; }
+      .splash { background:rgba(15,14,13,0.95); border-radius:16px; padding:40px 50px; text-align:center; border:1px solid rgba(232,164,53,0.2); box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+      h1 { font-size:1.4rem; font-weight:700; background:linear-gradient(135deg,%23e8a435,%23c47a7a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 0 12px; }
+      p { color:%239a918a; font-size:0.78rem; margin:0; }
+      .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:%23e8a435; margin:0 2px; animation:pulse 1.2s infinite; }
+      .dot:nth-child(2){animation-delay:0.2s} .dot:nth-child(3){animation-delay:0.4s}
+      @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}
+    </style>
+    <div class="splash">
+      <h1>Resonance</h1>
+      <p><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>
+    </div>`;
+
+  splashWindow.loadURL(splashHtml);
+}
+
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  createSplash();
+
   // Set data dir to userData (persists across updates)
   setDataDir(app.getPath('userData'));
-  console.log('Data dir:', app.getPath('userData'));
 
   // Always start server locally (UI needs it for fetch/WS)
   try {
@@ -195,6 +229,16 @@ app.whenReady().then(async () => {
 
   createWindow();
   mainWindow.loadURL('http://localhost:3000');
+
+  // Close splash when main window is ready (min 1.5s display)
+  const splashStart = Date.now();
+  mainWindow.once('ready-to-show', () => {
+    const elapsed = Date.now() - splashStart;
+    const delay = Math.max(0, 1500 - elapsed);
+    setTimeout(() => {
+      if (splashWindow) { splashWindow.close(); splashWindow = null; }
+    }, delay);
+  });
 
   createTray();
   setupAutoUpdater();

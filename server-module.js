@@ -16,13 +16,14 @@ let DATA_DIR = __dirname;
 
 function setDataDir(dir) {
   DATA_DIR = dir;
-  // Reload config + playlists from the correct location
+  // Reload config + playlists + history from the correct location
   config = loadConfig();
   playlists = loadPlaylists();
+  history = loadHistory();
   // Ensure covers dir exists
   const coversDir = path.join(DATA_DIR, '__covers');
   if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
-  console.log('Data dir set to:', dir, '| Config:', getConfigPath(), '| Playlists:', getPlaylistsPath());
+  console.log('Data dir set to:', dir);
 }
 
 // ─── Config (stored in userData so it survives updates) ─────────────────────
@@ -71,6 +72,37 @@ function loadPlaylists() {
 
 function savePlaylists() {
   fs.writeFileSync(getPlaylistsPath(), JSON.stringify(playlists, null, 2));
+}
+
+// ─── History ────────────────────────────────────────────────────────────────
+function getHistoryPath() { return path.join(DATA_DIR, 'history.json'); }
+let history = loadHistory();
+
+function loadHistory() {
+  try {
+    var p = getHistoryPath();
+    if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch (e) {}
+  return [];
+}
+
+function saveHistory() {
+  fs.writeFileSync(getHistoryPath(), JSON.stringify(history.slice(0, 5000), null, 2));
+}
+
+function logPlay(trackId) {
+  var track = library[trackId];
+  if (!track) return;
+  history.unshift({
+    id: trackId,
+    title: track.title,
+    artist: track.artist,
+    genre: track.genre,
+    hasCover: track.hasCover,
+    playedAt: new Date().toISOString(),
+  });
+  if (history.length > 5000) history = history.slice(0, 5000);
+  saveHistory();
 }
 
 // ─── Cover Cache ────────────────────────────────────────────────────────────
@@ -503,6 +535,35 @@ function startServer(port) {
       res.json({ ok: true, count: library.length });
     });
 
+    // ─── History ─────────────────────────────────────────────────────────────
+    app.post('/api/history/log', (req, res) => {
+      const { trackId } = req.body;
+      if (trackId != null) logPlay(trackId);
+      res.json({ ok: true });
+    });
+
+    app.get('/api/history/recent', (req, res) => {
+      const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+      res.json(history.slice(0, limit));
+    });
+
+    app.get('/api/history/top', (req, res) => {
+      // Most played tracks (by play count)
+      const counts = {};
+      for (const h of history) {
+        counts[h.id] = (counts[h.id] || 0) + 1;
+      }
+      const sorted = Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50)
+        .map(([id, count]) => {
+          const t = library[parseInt(id)];
+          return t ? { id: t.id, title: t.title, artist: t.artist, genre: t.genre, hasCover: t.hasCover, count } : null;
+        })
+        .filter(Boolean);
+      res.json(sorted);
+    });
+
     // ─── Desktop State (Electron pushes its player state here) ───────────────
     app.post('/api/desktop/state', (req, res) => {
       desktopState = req.body || {};
@@ -642,17 +703,44 @@ function startServer(port) {
       const lanIp = getLanIp();
       console.log(`Resonance server started on http://${lanIp}:${usePort}`);
 
-      // WebSocket
-      wssInstance = new WebSocketServer({ server: serverInstance, maxPayload: 1024 });
-      wssInstance.on('connection', (ws) => {
+      // WebSocket + connected users tracking
+      const connectedUsers = new Map(); // ws → { id, name, connectedAt }
+      let userCounter = 0;
+
+      wssInstance = new WebSocketServer({ server: serverInstance, maxPayload: 2048 });
+      wssInstance.on('connection', (ws, req) => {
         if (clients.size >= 20) {
           ws.close(1013, 'Too many connections');
           return;
         }
         clients.add(ws);
+        userCounter++;
+        const userId = 'user-' + userCounter;
+        const ip = req.socket.remoteAddress || '';
+        connectedUsers.set(ws, { id: userId, name: 'Device ' + userCounter, ip: ip.replace('::ffff:', ''), connectedAt: new Date().toISOString() });
+
         ws.send(JSON.stringify({ type: 'state', data: getState() }));
-        ws.on('close', () => clients.delete(ws));
-        ws.on('error', () => clients.delete(ws));
+        broadcast({ type: 'users:changed', data: { count: connectedUsers.size } });
+
+        ws.on('message', (msg) => {
+          try {
+            const data = JSON.parse(msg);
+            // Allow client to set a display name
+            if (data.type === 'set-name' && data.name) {
+              const user = connectedUsers.get(ws);
+              if (user) { user.name = data.name.slice(0, 20); broadcast({ type: 'users:changed', data: { count: connectedUsers.size } }); }
+            }
+          } catch(e) {}
+        });
+
+        ws.on('close', () => { clients.delete(ws); connectedUsers.delete(ws); broadcast({ type: 'users:changed', data: { count: connectedUsers.size } }); });
+        ws.on('error', () => { clients.delete(ws); connectedUsers.delete(ws); });
+      });
+
+      app.get('/api/users', (req, res) => {
+        const users = [];
+        connectedUsers.forEach((u) => users.push({ id: u.id, name: u.name, connectedAt: u.connectedAt }));
+        res.json(users);
       });
 
       // Scan library on start
