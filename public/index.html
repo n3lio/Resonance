@@ -269,6 +269,51 @@
     }
     .track-item:hover .add-btn { opacity: 1; }
 
+    /* ─── Now Playing Hero ─── */
+    .np-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 20px 16px;
+      background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .np-cover {
+      width: 160px; height: 160px; border-radius: 12px; overflow: hidden;
+      background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .np-cover .ph { width: 100%; height: 100%; background: linear-gradient(135deg,#201c18,#151310); display: flex; align-items: center; justify-content: center; }
+    .np-cover .ph svg { width: 48px; height: 48px; opacity: 0.2; color: var(--accent); }
+    .np-info { text-align: center; }
+    .np-title { font-size: 1rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 300px; }
+    .np-artist { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+    .np-controls { display: flex; align-items: center; gap: 8px; }
+    .np-controls button {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 8px; border-radius: 50%; transition: all 0.15s;
+    }
+    .np-controls button:hover { color: var(--text); background: var(--accent-subtle); }
+    .np-controls .np-play {
+      background: var(--accent); color: var(--bg); width: 48px; height: 48px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .np-controls .np-play:hover { box-shadow: 0 6px 24px var(--accent-glow); transform: scale(1.05); }
+    .np-progress { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 320px; }
+    .np-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; position: relative; }
+    .np-bar:hover { height: 6px; }
+    .np-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--rose)); border-radius: 2px; width: 0%; transition: width 0.3s linear; }
+    .np-time { font-size: 0.68rem; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 30px; }
+
+    @media (max-width: 768px) {
+      .np-cover { width: 120px; height: 120px; }
+      .np-hero { padding: 16px 16px 12px; }
+      .np-title { max-width: 220px; }
+    }
+
     /* ─── Queue Panel ─── */
     .queue-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
     .queue-header h2 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
@@ -523,6 +568,28 @@
 <div class="main-area">
   <!-- Now Playing Tab -->
   <div class="panel active" id="panel-nowplaying">
+    <!-- Hero: big cover + track info + controls -->
+    <div class="np-hero" id="npHero">
+      <div class="np-cover" id="npCover">
+        <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
+      </div>
+      <div class="np-info">
+        <div class="np-title" id="npTitle">Nothing playing</div>
+        <div class="np-artist" id="npArtist">Pick a track to start</div>
+      </div>
+      <div class="np-controls">
+        <button id="npPrev" title="Previous"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+        <button class="np-play" id="npPlay" title="Play/Pause"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg></button>
+        <button id="npNext" title="Next"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+        <button id="npShuffle" title="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
+      </div>
+      <div class="np-progress">
+        <span class="np-time" id="npCurrent">0:00</span>
+        <div class="np-bar" id="npBar"><div class="np-fill" id="npFill"></div></div>
+        <span class="np-time" id="npTotal">0:00</span>
+      </div>
+    </div>
+    <!-- Queue below -->
     <div class="queue-header">
       <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
       <div class="queue-actions">
@@ -1089,6 +1156,61 @@ document.getElementById('plCreate').addEventListener('click', async function() {
   else alert(r.error || 'Error');
 });
 
+// ─── Now Playing Hero ────────────────────────────────────────────────────────
+var lastHeroTrackId = null;
+var HERO_PH = '<div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>';
+
+function updateNowPlayingHero() {
+  var trackId, track, playing;
+
+  if (!isDesktop && mobileMode === 'remote' && lastDesktopState) {
+    trackId = lastDesktopState.trackId;
+    track = { title: lastDesktopState.title, artist: lastDesktopState.artist, hasCover: lastDesktopState.hasCover };
+    playing = lastDesktopState.isPlaying;
+  } else {
+    trackId = queue[currentIndex];
+    track = getTrack(trackId);
+    playing = isPlaying;
+  }
+
+  document.getElementById('npTitle').textContent = track ? track.title : 'Nothing playing';
+  document.getElementById('npArtist').textContent = track ? track.artist : 'Pick a track to start';
+
+  if (trackId !== lastHeroTrackId) {
+    lastHeroTrackId = trackId;
+    var cover = document.getElementById('npCover');
+    if (track && track.hasCover && trackId != null) {
+      cover.innerHTML = '<img src="/api/cover/' + trackId + '">';
+    } else {
+      cover.innerHTML = HERO_PH;
+    }
+  }
+
+  var playSvg = playing
+    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>';
+  document.getElementById('npPlay').innerHTML = playSvg;
+}
+
+document.getElementById('npPlay').addEventListener('click', function() { document.getElementById('playPauseBtn').click(); });
+document.getElementById('npNext').addEventListener('click', function() { document.getElementById('nextBtn').click(); });
+document.getElementById('npPrev').addEventListener('click', function() { document.getElementById('prevBtn').click(); });
+document.getElementById('npShuffle').addEventListener('click', function() { document.getElementById('shuffleBtn').click(); });
+
+document.getElementById('npBar').addEventListener('click', function(e) {
+  if (!isDesktop && mobileMode === 'remote') return;
+  if (!audio.duration) return;
+  var rect = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+});
+
+audio.addEventListener('timeupdate', function() {
+  if (!audio.duration) return;
+  document.getElementById('npFill').style.width = (audio.currentTime / audio.duration * 100) + '%';
+  document.getElementById('npCurrent').textContent = formatTime(audio.currentTime);
+  document.getElementById('npTotal').textContent = formatTime(audio.duration);
+});
+
 // Save current queue as playlist
 document.getElementById('saveQueueAsPlaylist').addEventListener('click', function() {
   if (!queue.length) return showToast('Queue is empty');
@@ -1114,6 +1236,8 @@ function playCurrentTrack() {
   // Log to history
   fetch('/api/history/log', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ trackId: trackId }) }).catch(function(){});
 
+  updateNowPlayingHero();
+
   // Update player bar
   document.getElementById('playerTitle').textContent = track ? track.title : 'Unknown';
   document.getElementById('playerArtist').textContent = track ? track.artist : '';
@@ -1135,6 +1259,7 @@ function updatePlayBtn() {
     ? '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
     : '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>';
   document.getElementById('playPauseBtn').innerHTML = svg;
+  updateNowPlayingHero();
 }
 
 function highlightPlaying() {
@@ -1679,6 +1804,16 @@ function updatePlayerFromDesktop(d) {
   }
   // Sync volume slider
   if (d.volume != null) document.getElementById('volumeSlider').value = d.volume;
+
+  // Update hero
+  updateNowPlayingHero();
+
+  // Sync hero progress from remote
+  if (d.duration) {
+    document.getElementById('npFill').style.width = (d.progress / d.duration * 100) + '%';
+    document.getElementById('npCurrent').textContent = formatTime(d.progress);
+    document.getElementById('npTotal').textContent = formatTime(d.duration);
+  }
 }
 
 function updatePlayerFromLocal() {
