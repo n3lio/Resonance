@@ -12,6 +12,20 @@ const config = require('./config.json');
 let serverInstance = null;
 let wssInstance = null;
 
+// ─── Data directory (writable at runtime) ───────────────────────────────────
+// In packaged Electron, __dirname may be read-only (asar or program files).
+// Use Electron's userData path when available, else fall back to __dirname.
+function getDataDir() {
+  try {
+    const { app } = require('electron');
+    return app.getPath('userData');
+  } catch (e) {
+    // Not running inside Electron (standalone server mode) — use __dirname
+    return __dirname;
+  }
+}
+const DATA_DIR = getDataDir();
+
 // ─── State ───────────────────────────────────────────────────────────────────
 let library = [];
 let genres = new Set();
@@ -22,7 +36,7 @@ let playMode = 'stream';
 let mpvProcess = null;
 
 // Playlists stored in a JSON file
-const PLAYLISTS_FILE = path.join(__dirname, 'playlists.json');
+const PLAYLISTS_FILE = path.join(DATA_DIR, 'playlists.json');
 let playlists = loadPlaylists();
 
 function loadPlaylists() {
@@ -39,7 +53,7 @@ function savePlaylists() {
 }
 
 // ─── Cover Cache ────────────────────────────────────────────────────────────
-const COVERS_DIR = path.join(__dirname, '__covers');
+const COVERS_DIR = path.join(DATA_DIR, '__covers');
 if (!fs.existsSync(COVERS_DIR)) {
   fs.mkdirSync(COVERS_DIR, { recursive: true });
 }

@@ -1,6 +1,6 @@
 {
   "name": "resonance",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Personal MP3 player/streamer - LAN + remote access",
   "main": "main.js",
   "scripts": {
@@ -25,6 +25,7 @@
   "build": {
     "appId": "com.n3lio.resonance",
     "productName": "Resonance",
+    "asar": false,
     "directories": {
       "output": "dist"
     },
@@ -35,6 +36,7 @@
       "server-module.js",
       "config.json",
       "public/**/*",
+      "assets/**/*",
       "package.json",
       "node_modules/**/*"
     ],
