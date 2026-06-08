@@ -548,6 +548,7 @@
   <div class="panel" id="panel-playlists">
     <div class="toolbar">
       <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
+      <button class="toolbar-btn" id="saveQueueAsPlaylist">Save Queue as Playlist</button>
     </div>
     <div class="playlists-view" id="playlistsView"></div>
   </div>
@@ -1086,6 +1087,17 @@ document.getElementById('plCreate').addEventListener('click', async function() {
   var r = await api('/playlists', 'POST', body);
   if (r.ok) { document.getElementById('playlistModal').classList.remove('open'); fetchPlaylists(); }
   else alert(r.error || 'Error');
+});
+
+// Save current queue as playlist
+document.getElementById('saveQueueAsPlaylist').addEventListener('click', function() {
+  if (!queue.length) return showToast('Queue is empty');
+  var name = prompt('Playlist name:');
+  if (!name) return;
+  api('/playlists', 'POST', { name: name, trackIds: queue }).then(function(r) {
+    if (r.ok) { showToast('Playlist "' + name + '" saved (' + queue.length + ' tracks)'); fetchPlaylists(); }
+    else alert(r.error || 'Error');
+  });
 });
 
 // ─── Audio Playback ──────────────────────────────────────────────────────────
