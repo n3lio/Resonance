@@ -30,6 +30,8 @@ function createWindow() {
     minHeight: 600,
     title: 'Resonance',
     icon: getIconPath(),
+    frame: false,
+    titleBarStyle: 'hidden',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -39,18 +41,19 @@ function createWindow() {
     backgroundColor: '#0a0a0b',
   });
 
+  // Remove default menu bar (File, Edit, View...)
+  mainWindow.setMenuBarVisibility(false);
+  mainWindow.setMenu(null);
+
   mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
 
-  // Minimize to tray on close
-  mainWindow.on('close', (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      mainWindow.hide();
-    }
+  // Close = quit the app (no hidden tray behavior — keep it simple)
+  mainWindow.on('close', () => {
+    app.isQuitting = true;
   });
 
   mainWindow.on('closed', () => {
@@ -182,6 +185,22 @@ ipcMain.handle('app:version', () => {
   return app.getVersion();
 });
 
+// ─── Window Controls (frameless) ────────────────────────────────────────────
+ipcMain.handle('window:minimize', () => {
+  if (mainWindow) mainWindow.minimize();
+});
+
+ipcMain.handle('window:maximize', () => {
+  if (mainWindow) {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  }
+});
+
+ipcMain.handle('window:close', () => {
+  if (mainWindow) mainWindow.close();
+});
+
 // ─── Auto Updater ───────────────────────────────────────────────────────────
 function setupAutoUpdater() {
   autoUpdater.autoDownload = true;
@@ -231,8 +250,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  // Don't quit on macOS (or Windows with tray)
-  // App keeps running in tray
+  app.quit();
 });
 
 app.on('before-quit', async () => {

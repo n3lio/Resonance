@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld('resonance', {
   // App info
   getVersion: () => ipcRenderer.invoke('app:version'),
 
+  // Window controls (frameless)
+  minimize: () => ipcRenderer.invoke('window:minimize'),
+  maximize: () => ipcRenderer.invoke('window:maximize'),
+  close: () => ipcRenderer.invoke('window:close'),
+
   // Events from main process
   onServerStatusChanged: (callback) => {
     ipcRenderer.on('server:status-changed', (event, data) => callback(data));

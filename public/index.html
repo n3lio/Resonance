@@ -44,7 +44,55 @@
       display: flex;
       flex-direction: column;
       padding-bottom: 100px;
+      border-radius: 10px;
+      overflow: hidden;
     }
+
+    /* ─── Custom Title Bar ─── */
+    .titlebar {
+      display: none;
+      height: 38px;
+      background: #080808;
+      -webkit-app-region: drag;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .titlebar.visible { display: flex; }
+
+    .titlebar-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: -0.01em;
+      flex: 1;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .titlebar-controls {
+      display: flex;
+      gap: 8px;
+      -webkit-app-region: no-drag;
+    }
+
+    .titlebar-btn {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      opacity: 0.9;
+    }
+
+    .titlebar-btn:hover { opacity: 1; }
+    .titlebar-btn.close { background: #e05555; }
+    .titlebar-btn.minimize { background: #e8a435; }
+    .titlebar-btn.maximize { background: #7ac47a; }
 
     /* ─── Header ─── */
     header {
@@ -816,6 +864,16 @@
 </head>
 <body>
 
+<!-- Custom Title Bar (Electron only) -->
+<div class="titlebar" id="titlebar">
+  <div class="titlebar-controls">
+    <button class="titlebar-btn close" id="tbClose" title="Fermer"></button>
+    <button class="titlebar-btn minimize" id="tbMin" title="Minimiser"></button>
+    <button class="titlebar-btn maximize" id="tbMax" title="Maximiser"></button>
+  </div>
+  <span class="titlebar-title">Resonance</span>
+</div>
+
 <header>
   <div class="status-dot"></div>
   <h1>Resonance</h1>
@@ -995,6 +1053,8 @@ const PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentCol
 // ─── WebSocket (with reconnect) ──────────────────────────────────────────────
 let ws;
 function connectWS() {
+  // Don't connect WS if loaded via file:// (Electron without server running)
+  if (!location.host) return;
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   ws = new WebSocket(protocol + '//' + location.host);
   ws.onmessage = function(event) {
@@ -1619,6 +1679,12 @@ audio.addEventListener('play', function() {
 
 // ─── Electron Integration ───────────────────────────────────────────────────
 if (window.resonance && window.resonance.isElectron) {
+  // Show custom title bar
+  document.getElementById('titlebar').classList.add('visible');
+  document.getElementById('tbClose').addEventListener('click', function() { window.resonance.close(); });
+  document.getElementById('tbMin').addEventListener('click', function() { window.resonance.minimize(); });
+  document.getElementById('tbMax').addEventListener('click', function() { window.resonance.maximize(); });
+
   // Show server toggle
   var serverWrap = document.getElementById('serverToggleWrap');
   var serverBtn = document.getElementById('serverToggleBtn');
