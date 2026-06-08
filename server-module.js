@@ -656,6 +656,23 @@ function startServer(port) {
       res.json({ ok: true });
     });
 
+    app.post('/api/playlists/reorder', (req, res) => {
+      const { order } = req.body;
+      if (!Array.isArray(order)) return res.status(400).json({ error: 'order must be an array of IDs' });
+      const reordered = [];
+      for (const id of order) {
+        const pl = playlists.find(p => p.id === id);
+        if (pl) reordered.push(pl);
+      }
+      // Keep any playlists not in the order array (safety)
+      for (const pl of playlists) {
+        if (!reordered.find(p => p.id === pl.id)) reordered.push(pl);
+      }
+      playlists = reordered;
+      savePlaylists();
+      res.json({ ok: true });
+    });
+
     app.post('/api/playlists/:id/play', (req, res) => {
       const pl = playlists.find(p => p.id === req.params.id);
       if (!pl) return res.status(404).json({ error: 'Playlist not found' });
