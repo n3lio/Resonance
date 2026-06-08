@@ -431,15 +431,22 @@
 
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    /* ─── Remote Bar ─── */
-    .remote-bar {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 16px;
-      background: rgba(122,196,122,0.06);
-      border-top: 1px solid rgba(122,196,122,0.2);
-      flex-shrink: 0;
+    /* ─── Mode Toggle (mobile) ─── */
+    .mode-toggle { display: flex; gap: 3px; }
+    .mode-btn {
+      padding: 5px 10px; border-radius: 16px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-muted); cursor: pointer;
+      font-size: 0.7rem; font-family: var(--font); font-weight: 500; transition: all 0.2s;
+    }
+    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn.active { background: linear-gradient(135deg,var(--accent),#d49020); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
+
+    /* Remote mode indicator on player bar */
+    .player-bar.remote-mode { border-top-color: rgba(122,196,122,0.3); }
+    .player-mode-label {
+      position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+      font-size: 0.6rem; font-weight: 600; color: var(--green);
+      background: var(--bg); padding: 0 8px; letter-spacing: 0.03em;
     }
 
     /* ─── Responsive ─── */
@@ -453,6 +460,7 @@
       #vizToggleBtn { display: none; }
       .settings-btn { display: none !important; }
       .window-controls { display: none !important; }
+      .track-item .add-btn { opacity: 0.7; }
     }
   </style>
 </head>
@@ -462,6 +470,10 @@
   <h1>Resonance</h1>
   <span class="scan-indicator" id="scanIndicator" style="display:none;font-size:0.72rem;color:var(--accent);animation:pulse 1.2s infinite;">Scanning...</span>
   <div class="header-right">
+    <div class="mode-toggle" id="modeToggle" style="display:none;">
+      <button class="mode-btn active" data-mode="remote">Remote</button>
+      <button class="mode-btn" data-mode="stream">Stream</button>
+    </div>
     <button class="server-pill" id="serverPill" style="display:none">
       <span class="dot"></span>
       <span class="server-label">LAN Server</span>
@@ -535,23 +547,9 @@
   </div>
 </div>
 
-<!-- Remote Bar (mobile only — shows desktop state) -->
-<div class="remote-bar" id="remoteBar" style="display:none">
-  <div class="remote-cover" style="width:36px;height:36px;border-radius:6px;overflow:hidden;flex-shrink:0;background:var(--surface);"></div>
-  <div style="flex:1;min-width:0;">
-    <div class="remote-title" style="font-size:0.8rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-    <div class="remote-artist" style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-  </div>
-  <span class="remote-status" style="font-size:0.65rem;color:var(--green);white-space:nowrap;"></span>
-  <div style="display:flex;gap:4px;">
-    <button onclick="sendRemoteCommand('prev')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-    <button onclick="sendRemoteCommand(document.querySelector('.remote-status').textContent.includes('Playing')?'pause':'play')" style="background:none;border:none;color:var(--accent);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M8 5v14l11-7z"/></svg></button>
-    <button onclick="sendRemoteCommand('next')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-  </div>
-</div>
-
 <!-- Player Bar -->
-<div class="player-bar">
+<div class="player-bar" id="playerBar">
+  <span class="player-mode-label" id="playerModeLabel" style="display:none;"></span>
   <div class="player-cover" id="playerCover">
     <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
   </div>
@@ -641,6 +639,10 @@ var queue = [];
 var currentIndex = -1;
 var isPlaying = false;
 var audio = document.getElementById('audio');
+var isDesktop = !!(window.resonance && window.resonance.isElectron);
+var mobileMode = 'remote';
+var lastDesktopState = null;
+var userPickedStream = false;
 
 var PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 
@@ -735,19 +737,32 @@ document.getElementById('trackList').addEventListener('click', function(e) {
   var addBtn = e.target.closest('.add-btn');
   if (addBtn) {
     e.stopPropagation();
-    queue.push(parseInt(addBtn.dataset.id));
-    renderQueue();
+    var addId = parseInt(addBtn.dataset.id);
+    if (!isDesktop && mobileMode === 'remote') {
+      remoteAddToQueue(addId);
+      showToast('Added to server queue');
+    } else {
+      queue.push(addId);
+      renderQueue();
+    }
     return;
   }
   var item = e.target.closest('.track-item');
   if (!item) return;
   var id = parseInt(item.dataset.id);
-  var idx = tracks.findIndex(function(t){ return t.id === id; });
-  queue = tracks.map(function(t){ return t.id; });
-  currentIndex = idx >= 0 ? idx : 0;
-  playCurrentTrack();
-  renderQueue();
-  document.querySelector('[data-tab="nowplaying"]').click();
+
+  if (!isDesktop && mobileMode === 'remote') {
+    // Remote mode: play on desktop
+    remotePlayTrack(id);
+  } else {
+    // Local play
+    var idx = tracks.findIndex(function(t){ return t.id === id; });
+    queue = tracks.map(function(t){ return t.id; });
+    currentIndex = idx >= 0 ? idx : 0;
+    playCurrentTrack();
+    renderQueue();
+    document.querySelector('[data-tab="nowplaying"]').click();
+  }
 });
 
 // ─── Render Queue ────────────────────────────────────────────────────────────
@@ -904,6 +919,12 @@ audio.addEventListener('ended', function() {
 
 // ─── Controls ────────────────────────────────────────────────────────────────
 document.getElementById('playPauseBtn').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') {
+    // Remote: toggle desktop
+    var cmd = (lastDesktopState && lastDesktopState.isPlaying) ? 'pause' : 'play';
+    sendRemoteCommand(cmd);
+    return;
+  }
   if (!audio.src || queue.length === 0) return;
   if (audio.paused) { audio.play(); isPlaying = true; }
   else { audio.pause(); isPlaying = false; }
@@ -911,10 +932,12 @@ document.getElementById('playPauseBtn').addEventListener('click', function() {
 });
 
 document.getElementById('nextBtn').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') { sendRemoteCommand('next'); return; }
   if (currentIndex < queue.length - 1) { currentIndex++; playCurrentTrack(); renderQueue(); }
 });
 
 document.getElementById('prevBtn').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') { sendRemoteCommand('prev'); return; }
   if (audio.currentTime > 3) { audio.currentTime = 0; }
   else if (currentIndex > 0) { currentIndex--; playCurrentTrack(); renderQueue(); }
 });
@@ -1096,8 +1119,6 @@ document.getElementById('settingsSave').addEventListener('click', async function
 });
 
 // ─── Electron Integration ───────────────────────────────────────────────────
-var isDesktop = !!(window.resonance && window.resonance.isElectron);
-
 if (isDesktop) {
   // Window controls in header
   document.getElementById('winControls').classList.add('visible');
@@ -1162,7 +1183,70 @@ function showToast(msg) {
 function formatTime(s) { if (!s||isNaN(s)) return '0:00'; var m=Math.floor(s/60); var sec=Math.floor(s%60); return m+':'+(sec<10?'0':'')+sec; }
 function esc(str) { var d=document.createElement('div'); d.textContent=str||''; return d.innerHTML; }
 
-// ─── WebSocket (scan notifications + library updates + remote) ───────────────
+// ─── Mobile Mode: Remote vs Stream ───────────────────────────────────────────
+// 'remote' = control the desktop, browse → play on desktop
+// 'stream' = play locally on this device
+function setMobileMode(mode) {
+  mobileMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.mode === mode); });
+  var bar = document.getElementById('playerBar');
+  var label = document.getElementById('playerModeLabel');
+  if (mode === 'remote') {
+    bar.classList.add('remote-mode');
+    label.style.display = 'block';
+    label.textContent = 'REMOTE';
+    // Show desktop state
+    if (lastDesktopState) updatePlayerFromDesktop(lastDesktopState);
+  } else {
+    bar.classList.remove('remote-mode');
+    label.style.display = 'none';
+    updatePlayerFromLocal();
+  }
+}
+
+function updatePlayerFromDesktop(d) {
+  if (mobileMode !== 'remote' || isDesktop) return;
+  document.getElementById('playerTitle').textContent = d.title || 'Nothing playing';
+  document.getElementById('playerArtist').textContent = d.artist || 'Server idle';
+  document.getElementById('totalTime').textContent = formatTime(d.duration);
+  document.getElementById('currentTime').textContent = formatTime(d.progress);
+  if (d.duration) document.getElementById('progressFill').style.width = (d.progress / d.duration * 100) + '%';
+  var cover = document.getElementById('playerCover');
+  if (d.hasCover && d.trackId) cover.innerHTML = '<img src="/api/cover/' + d.trackId + '">';
+  else cover.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
+  // Update play/pause icon
+  var svg = d.isPlaying
+    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>';
+  document.getElementById('playPauseBtn').innerHTML = svg;
+}
+
+function updatePlayerFromLocal() {
+  if (mobileMode !== 'stream' || isDesktop) return;
+  var trackId = queue[currentIndex];
+  var track = trackId != null ? tracks.find(function(t){ return t.id === trackId; }) : null;
+  document.getElementById('playerTitle').textContent = track ? track.title : 'Resonance';
+  document.getElementById('playerArtist').textContent = track ? track.artist : 'Select a track';
+  var cover = document.getElementById('playerCover');
+  if (track && track.hasCover) cover.innerHTML = '<img src="/api/cover/' + trackId + '">';
+  else cover.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
+}
+
+function sendRemoteCommand(cmd) {
+  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: cmd }) }).catch(function(){});
+}
+
+// Remote: play a specific track on desktop
+function remotePlayTrack(trackId) {
+  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: 'play-track', trackId: trackId }) }).catch(function(){});
+}
+
+// Remote: add track to desktop queue
+function remoteAddToQueue(trackId) {
+  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: 'add-to-queue', trackId: trackId }) }).catch(function(){});
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
 (function connectWS() {
   if (!location.host) return;
   var ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host);
@@ -1180,9 +1264,12 @@ function esc(str) { var d=document.createElement('div'); d.textContent=str||''; 
       fetchTracks();
       fetchGenres();
     }
-    // Desktop state update (for mobile remote view)
+    // Desktop state (for mobile)
     if (msg.type === 'desktop:state' && !isDesktop) {
-      updateRemoteDisplay(msg.data);
+      lastDesktopState = msg.data;
+      // Auto-switch to remote if desktop is playing and user hasn't picked stream
+      if (msg.data.isPlaying && !userPickedStream) setMobileMode('remote');
+      if (mobileMode === 'remote') updatePlayerFromDesktop(msg.data);
     }
     // Remote commands (mobile → desktop)
     if (msg.type === 'remote:command' && isDesktop) {
@@ -1191,31 +1278,38 @@ function esc(str) { var d=document.createElement('div'); d.textContent=str||''; 
       if (cmd === 'pause') { audio.pause(); isPlaying = false; updatePlayBtn(); }
       if (cmd === 'next') document.getElementById('nextBtn').click();
       if (cmd === 'prev') document.getElementById('prevBtn').click();
+      if (cmd === 'play-track' && msg.data.trackId != null) {
+        var idx = tracks.findIndex(function(t){ return t.id === msg.data.trackId; });
+        if (idx >= 0) { queue = tracks.map(function(t){return t.id}); currentIndex = idx; playCurrentTrack(); renderQueue(); }
+      }
+      if (cmd === 'add-to-queue' && msg.data.trackId != null) {
+        queue.push(msg.data.trackId);
+        renderQueue();
+      }
     }
   };
   ws.onclose = function() { setTimeout(connectWS, 3000); };
   ws.onerror = function() { ws.close(); };
 })();
 
-// ─── Remote Display (mobile shows what desktop is playing) ───────────────────
-function updateRemoteDisplay(d) {
-  var el = document.getElementById('remoteBar');
-  if (!el) return;
-  if (!d || !d.trackId) {
-    el.style.display = 'none';
-    return;
-  }
-  el.style.display = 'flex';
-  el.querySelector('.remote-title').textContent = d.title || 'Unknown';
-  el.querySelector('.remote-artist').textContent = d.artist || '';
-  el.querySelector('.remote-status').textContent = d.isPlaying ? 'Playing on server' : 'Paused on server';
-  var coverEl = el.querySelector('.remote-cover');
-  if (d.hasCover) coverEl.innerHTML = '<img src="/api/cover/' + d.trackId + '">';
-  else coverEl.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
-}
+// ─── Mode Toggle (mobile only) ───────────────────────────────────────────────
+if (!isDesktop) {
+  // Show mode toggle on mobile/web
+  document.getElementById('modeToggle').style.display = 'flex';
 
-function sendRemoteCommand(cmd) {
-  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: cmd }) }).catch(function(){});
+  document.querySelectorAll('.mode-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var mode = btn.dataset.mode;
+      if (mode === 'stream') userPickedStream = true;
+      setMobileMode(mode);
+    });
+  });
+
+  // Fetch initial desktop state
+  fetch('/api/desktop/state').then(function(r){ return r.json(); }).then(function(d) {
+    lastDesktopState = d;
+    if (d && d.isPlaying) setMobileMode('remote');
+  }).catch(function(){});
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
