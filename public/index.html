@@ -602,6 +602,15 @@
     </div>
 
     <div class="settings-section">
+      <h4>Mobile Access</h4>
+      <div id="qrSection">
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px;" id="qrLabel">Scan from your phone to open Resonance</p>
+        <div id="qrCode" style="display:flex;justify-content:center;padding:12px;background:#fff;border-radius:var(--radius);width:fit-content;margin:0 auto;"></div>
+        <p style="font-size:0.72rem;color:var(--text-dim);text-align:center;margin-top:8px;" id="qrUrl"></p>
+      </div>
+    </div>
+
+    <div class="settings-section">
       <h4>About</h4>
       <p style="font-size:0.78rem;color:var(--text-muted);" id="aboutText">Resonance</p>
     </div>
@@ -630,6 +639,7 @@
 
 <audio id="audio" preload="auto"></audio>
 
+<script src="qr.js"></script>
 <script src="visualizer.js"></script>
 <script>
 // ─── State ───────────────────────────────────────────────────────────────────
@@ -1099,6 +1109,22 @@ async function openSettings() {
     document.getElementById('settingsVizMode').value = vizMode;
     var ver = await window.resonance.getVersion();
     document.getElementById('aboutText').textContent = 'Resonance v' + ver + ' — by n3lio';
+
+    // Generate QR code for mobile access
+    var status = await window.resonance.getServerStatus();
+    var qrContainer = document.getElementById('qrCode');
+    var qrUrl = document.getElementById('qrUrl');
+    var qrLabel = document.getElementById('qrLabel');
+    if (status.ip && status.ip !== '0.0.0.0') {
+      var url = 'http://' + status.ip + ':' + (status.port || 3000);
+      QR.toCanvas(qrContainer, url, 4);
+      qrUrl.textContent = url;
+      qrLabel.textContent = 'Scan from your phone to open Resonance';
+    } else {
+      while (qrContainer.firstChild) qrContainer.removeChild(qrContainer.firstChild);
+      qrUrl.textContent = '';
+      qrLabel.textContent = 'Could not detect LAN IP';
+    }
   } else {
     settingsFolders = [];
     document.getElementById('aboutText').textContent = 'Resonance (web mode)';
