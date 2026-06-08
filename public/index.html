@@ -330,7 +330,7 @@
       color: #0a0a0b; width: 42px; height: 42px;
       box-shadow: 0 4px 16px var(--accent-glow);
     }
-    .player-controls .play-btn:hover { box-shadow: 0 6px 24px rgba(232,164,53,0.3); }
+    .player-controls .play-btn:hover { background: linear-gradient(135deg, #f0b84a, var(--accent)); box-shadow: 0 6px 24px rgba(232,164,53,0.3); color: #0a0a0b; }
 
     .progress-container { flex: 1; display: flex; align-items: center; gap: 8px; }
     .progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; cursor: pointer; position: relative; }
@@ -519,7 +519,7 @@
   <!-- Now Playing Tab -->
   <div class="panel active" id="panel-nowplaying">
     <div class="queue-header">
-      <h2>Queue</h2>
+      <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
       <div class="queue-actions">
         <button id="shuffleQueue">Shuffle</button>
         <button id="clearQueue">Clear</button>
@@ -785,28 +785,35 @@ document.getElementById('trackList').addEventListener('click', function(e) {
 
 // ─── Render Queue ────────────────────────────────────────────────────────────
 var lastQueueHash = '';
+var queueRenderedCount = 0;
+var QUEUE_BATCH = 60;
 
 function renderQueue() {
   var list = document.getElementById('queueList');
+  var countEl = document.getElementById('queueCount');
 
   // On mobile Remote mode, show the server queue
   if (!isDesktop && mobileMode === 'remote' && lastDesktopState && lastDesktopState.queue) {
+    var sq = lastDesktopState.queue;
+    var sci = lastDesktopState.currentIndex || 0;
+    countEl.textContent = sq.length ? '(' + sq.length + ')' : '';
+
     // Only re-render if queue content changed (avoid image flash)
-    var newHash = lastDesktopState.currentIndex + ':' + lastDesktopState.queue.map(function(t){return t.id}).join(',');
+    var newHash = sci + ':' + sq.length + ':' + (sq[0] ? sq[0].id : '');
     if (newHash === lastQueueHash) {
-      // Just update the "playing" highlight without full re-render
       var items = list.querySelectorAll('.track-item');
-      items.forEach(function(el, i) { el.classList.toggle('playing', i === lastDesktopState.currentIndex); });
+      items.forEach(function(el, i) { el.classList.toggle('playing', i === sci); });
       return;
     }
     lastQueueHash = newHash;
-    var sq = lastDesktopState.queue;
-    var sci = lastDesktopState.currentIndex || 0;
+
     if (!sq.length) {
       list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Server queue is empty</div>';
       return;
     }
-    list.innerHTML = sq.map(function(t, i) {
+    // Render max 100 items from server queue (already capped at 200 by broadcast)
+    var renderSq = sq.slice(0, 100);
+    list.innerHTML = renderSq.map(function(t, i) {
       var coverHtml = t.hasCover
         ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
         : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
@@ -821,30 +828,58 @@ function renderQueue() {
 
   // Local queue (desktop always, or mobile in Stream mode)
   lastQueueHash = '';
+  countEl.textContent = queue.length ? '(' + queue.length + ')' : '';
   if (!queue.length) {
     list.innerHTML = '<div style="padding:24px;color:var(--text-dim);font-size:0.83rem;text-align:center;">Queue is empty — pick a track!</div>';
     return;
   }
-  list.innerHTML = queue.map(function(trackId, i) {
-    var t = getTrack(trackId) || { id: trackId, title: 'Unknown', artist: '', hasCover: false, duration: 0 };
+
+  // Lazy render queue
+  queueRenderedCount = 0;
+  list.innerHTML = '';
+  appendQueueBatch(list);
+}
+
+function appendQueueBatch(list) {
+  if (queueRenderedCount >= queue.length) return;
+  var end = Math.min(queueRenderedCount + QUEUE_BATCH, queue.length);
+  var html = '';
+  for (var i = queueRenderedCount; i < end; i++) {
+    var t = getTrack(queue[i]) || { id: queue[i], title: 'Unknown', artist: '', hasCover: false, duration: 0 };
     var coverHtml = t.hasCover
       ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
       : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
-    return '<div class="track-item ' + (i === currentIndex ? 'playing' : '') + '" data-qindex="' + i + '">' +
+    html += '<div class="track-item ' + (i === currentIndex ? 'playing' : '') + '" data-qindex="' + i + '">' +
       coverHtml +
       '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
       '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
     '</div>';
-  }).join('');
-
-  list.querySelectorAll('.track-item').forEach(function(el) {
-    el.addEventListener('click', function() {
-      currentIndex = parseInt(el.dataset.qindex);
-      playCurrentTrack();
-      renderQueue();
-    });
-  });
+  }
+  var frag = document.createElement('div');
+  frag.innerHTML = html;
+  while (frag.firstChild) list.appendChild(frag.firstChild);
+  queueRenderedCount = end;
 }
+
+// Queue infinite scroll
+(function() {
+  var list = document.getElementById('queueList');
+  list.addEventListener('scroll', function() {
+    if (queueRenderedCount >= queue.length) return;
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 200) {
+      appendQueueBatch(list);
+    }
+  });
+})();
+
+// Queue click delegation
+document.getElementById('queueList').addEventListener('click', function(e) {
+  var item = e.target.closest('.track-item');
+  if (!item || item.dataset.qindex == null) return;
+  currentIndex = parseInt(item.dataset.qindex);
+  playCurrentTrack();
+  renderQueue();
+});
 
 // ─── Genre Filter ────────────────────────────────────────────────────────────
 function renderGenreFilter() {
@@ -1297,6 +1332,9 @@ function setMobileMode(mode) {
   renderQueue();
 }
 
+var lastRemoteTrackId = null;
+var lastRemotePlaying = null;
+
 function updatePlayerFromDesktop(d) {
   if (mobileMode !== 'remote' || isDesktop) return;
   document.getElementById('playerTitle').textContent = d.title || 'Nothing playing';
@@ -1304,14 +1342,21 @@ function updatePlayerFromDesktop(d) {
   document.getElementById('totalTime').textContent = formatTime(d.duration);
   document.getElementById('currentTime').textContent = formatTime(d.progress);
   if (d.duration) document.getElementById('progressFill').style.width = (d.progress / d.duration * 100) + '%';
-  var cover = document.getElementById('playerCover');
-  if (d.hasCover && d.trackId) cover.innerHTML = '<img src="/api/cover/' + d.trackId + '">';
-  else cover.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
-  // Update play/pause icon
-  var svg = d.isPlaying
-    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>';
-  document.getElementById('playPauseBtn').innerHTML = svg;
+  // Only update cover if track changed (avoid image flash)
+  if (d.trackId !== lastRemoteTrackId) {
+    lastRemoteTrackId = d.trackId;
+    var cover = document.getElementById('playerCover');
+    if (d.hasCover && d.trackId) cover.innerHTML = '<img src="/api/cover/' + d.trackId + '">';
+    else cover.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
+  }
+  // Only update play/pause icon if state changed
+  if (d.isPlaying !== lastRemotePlaying) {
+    lastRemotePlaying = d.isPlaying;
+    var svg = d.isPlaying
+      ? '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
+      : '<svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M8 5v14l11-7z"/></svg>';
+    document.getElementById('playPauseBtn').innerHTML = svg;
+  }
 }
 
 function updatePlayerFromLocal() {
@@ -1412,6 +1457,8 @@ if (!isDesktop) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 fetchTracks();
 fetchGenres();
+// Retry after 3s if library was empty (scan might still be running)
+setTimeout(function() { if (!tracks.length) { fetchTracks(); fetchGenres(); } }, 3000);
 </script>
 </body>
 </html>

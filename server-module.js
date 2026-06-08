@@ -16,11 +16,13 @@ let DATA_DIR = __dirname;
 
 function setDataDir(dir) {
   DATA_DIR = dir;
-  // Reload config from the correct location
+  // Reload config + playlists from the correct location
   config = loadConfig();
+  playlists = loadPlaylists();
   // Ensure covers dir exists
   const coversDir = path.join(DATA_DIR, '__covers');
   if (!fs.existsSync(coversDir)) fs.mkdirSync(coversDir, { recursive: true });
+  console.log('Data dir set to:', dir, '| Config:', getConfigPath(), '| Playlists:', getPlaylistsPath());
 }
 
 // ─── Config (stored in userData so it survives updates) ─────────────────────
