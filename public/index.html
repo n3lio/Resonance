@@ -1204,6 +1204,7 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
     document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){i.classList.remove('active')});
     item.classList.add('active');
     document.getElementById('vizMenu').classList.remove('open');
+    if (isDesktop && window.resonance) window.resonance.setConfig({ vizMode: vizMode });
   });
 });
 document.getElementById('vizCloseItem').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.remove('open'); toggleViz(); });
