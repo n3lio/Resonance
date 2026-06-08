@@ -503,7 +503,12 @@
     </button>
     <div class="viz-menu" id="vizMenu">
       <div class="viz-menu-item active" data-viz="starfield">Starfield</div>
-      <div class="viz-menu-item" data-viz="retrowave">Retrowave</div>
+      <div class="viz-menu-item" data-viz="glow">Glow</div>
+      <div class="viz-menu-item" data-viz="nebula">Nebula</div>
+      <div class="viz-menu-item" data-viz="pulse">Pulse</div>
+      <div class="viz-menu-item" data-viz="aurora">Aurora</div>
+      <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
+      <div class="viz-menu-item" data-viz="matrix">Matrix</div>
       <div class="viz-menu-item" data-viz="bars">Bars</div>
       <div class="viz-menu-item" data-viz="circular">Circular</div>
       <div class="viz-menu-item" data-viz="wave">Wave</div>
@@ -595,7 +600,12 @@
       <label>Style</label>
       <select id="settingsVizMode" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;">
         <option value="starfield">Starfield</option>
-        <option value="retrowave">Retrowave</option>
+        <option value="glow">Glow</option>
+        <option value="nebula">Nebula</option>
+        <option value="pulse">Pulse</option>
+        <option value="aurora">Aurora</option>
+        <option value="spectrum">Spectrum</option>
+        <option value="matrix">Matrix</option>
         <option value="bars">Bars</option>
         <option value="circular">Circular</option>
         <option value="wave">Wave</option>
@@ -669,15 +679,12 @@ async function api(path, method, body) {
   return res.json();
 }
 
-async function fetchTracks(q, genre) {
-  var url = '/tracks';
-  var p = [];
-  if (q) p.push('q=' + encodeURIComponent(q));
-  if (genre) p.push('genre=' + encodeURIComponent(genre));
-  if (p.length) url += '?' + p.join('&');
+async function fetchTracks() {
   try {
-    tracks = await api(url);
-    tracks.forEach(cacheTrack);
+    var data = await api('/tracks');
+    data.forEach(cacheTrack);
+    allTracks = data;
+    tracks = data;
     renderTracks();
   } catch(e) { console.warn('fetchTracks:', e); }
 }
@@ -934,8 +941,9 @@ function renderGenreFilter() {
   sel.innerHTML = '<option value="">All genres</option>' +
     allGenres.map(function(g) { return '<option value="' + esc(g) + '">' + esc(g) + '</option>'; }).join('');
 }
-document.getElementById('genreFilter').addEventListener('change', function(e) {
-  fetchTracks(document.getElementById('search').value, e.target.value);
+document.getElementById('genreFilter').addEventListener('change', function() {
+  // Trigger the search filter (handles genre + query combo)
+  document.getElementById('search').dispatchEvent(new Event('input'));
 });
 
 // ─── Playlists ───────────────────────────────────────────────────────────────
@@ -1095,19 +1103,67 @@ document.getElementById('prevBtn').addEventListener('click', function() {
   else if (currentIndex > 0) { currentIndex--; playCurrentTrack(); renderQueue(); }
 });
 
+// ─── Smart Shuffle: spaces artists, varies genres, avoids repeats ────────────
+function smartShuffle(ids) {
+  if (ids.length < 3) return ids;
+  // Build track info map
+  var items = ids.map(function(id) { var t = getTrack(id); return { id: id, artist: t ? t.artist : '', genre: t ? (t.genre || '') : '' }; });
+
+  // Weighted random pick that penalizes recent artists/genres
+  var result = [];
+  var remaining = items.slice();
+  var recentArtists = [];
+  var recentGenres = [];
+  var ARTIST_COOLDOWN = Math.min(8, Math.floor(ids.length / 10) + 2);
+  var GENRE_COOLDOWN = Math.min(4, Math.floor(ids.length / 20) + 1);
+
+  while (remaining.length > 0) {
+    // Score each candidate
+    var scores = remaining.map(function(item) {
+      var score = 1;
+      // Penalize if same artist was recent
+      var artistIdx = recentArtists.indexOf(item.artist);
+      if (artistIdx >= 0) score *= 0.05 * (artistIdx + 1) / ARTIST_COOLDOWN;
+      // Penalize if same genre was recent
+      var genreIdx = recentGenres.indexOf(item.genre);
+      if (genreIdx >= 0 && item.genre) score *= 0.3 * (genreIdx + 1) / GENRE_COOLDOWN;
+      return score;
+    });
+
+    // Weighted random selection
+    var totalWeight = scores.reduce(function(s, v) { return s + v; }, 0);
+    var pick = Math.random() * totalWeight;
+    var chosen = 0;
+    for (var i = 0; i < scores.length; i++) {
+      pick -= scores[i];
+      if (pick <= 0) { chosen = i; break; }
+    }
+
+    var item = remaining[chosen];
+    result.push(item.id);
+    remaining.splice(chosen, 1);
+
+    // Update recency
+    recentArtists.unshift(item.artist);
+    if (recentArtists.length > ARTIST_COOLDOWN) recentArtists.pop();
+    if (item.genre) {
+      recentGenres.unshift(item.genre);
+      if (recentGenres.length > GENRE_COOLDOWN) recentGenres.pop();
+    }
+  }
+  return result;
+}
+
 document.getElementById('shuffleBtn').addEventListener('click', function() {
   if (queue.length < 2) return;
-  var current = queue[currentIndex];
-  // Shuffle remaining
   var before = queue.slice(0, currentIndex + 1);
-  var after = queue.slice(currentIndex + 1);
-  for (var i = after.length - 1; i > 0; i--) { var j = Math.floor(Math.random()*(i+1)); var t=after[i]; after[i]=after[j]; after[j]=t; }
+  var after = smartShuffle(queue.slice(currentIndex + 1));
   queue = before.concat(after);
   renderQueue();
 });
 
 document.getElementById('shuffleQueue').addEventListener('click', function() {
-  for (var i = queue.length - 1; i > 0; i--) { var j = Math.floor(Math.random()*(i+1)); var t=queue[i]; queue[i]=queue[j]; queue[j]=t; }
+  queue = smartShuffle(queue);
   currentIndex = 0;
   if (queue.length) playCurrentTrack();
   renderQueue();
@@ -1144,23 +1200,42 @@ document.getElementById('volumeSlider').addEventListener('input', function(e) {
   }
 });
 
-// Play All (shuffle all)
+// Play All (smart shuffle all)
 document.getElementById('playAll').addEventListener('click', function() {
   if (!tracks.length) return;
-  queue = tracks.map(function(t){ return t.id; });
-  for (var i = queue.length - 1; i > 0; i--) { var j = Math.floor(Math.random()*(i+1)); var t=queue[i]; queue[i]=queue[j]; queue[j]=t; }
+  queue = smartShuffle(tracks.map(function(t){ return t.id; }));
   currentIndex = 0;
   playCurrentTrack();
   renderQueue();
   document.querySelector('[data-tab="nowplaying"]').click();
 });
 
-// Search
+// ─── Fuzzy Search (client-side, all words must match) ────────────────────────
+var allTracks = []; // Full unfiltered list
+
+function fuzzyFilter(query) {
+  if (!query) return allTracks;
+  var words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  return allTracks.filter(function(t) {
+    var hay = (t.title + ' ' + t.artist + ' ' + t.album + ' ' + (t.genre || '')).toLowerCase();
+    return words.every(function(w) { return hay.includes(w); });
+  });
+}
+
 var searchTimeout;
 document.getElementById('search').addEventListener('input', function(e) {
   clearTimeout(searchTimeout);
-  var genre = document.getElementById('genreFilter').value;
-  searchTimeout = setTimeout(function(){ fetchTracks(e.target.value, genre); }, 300);
+  searchTimeout = setTimeout(function(){
+    var q = e.target.value.trim();
+    var genre = document.getElementById('genreFilter').value;
+    var filtered = fuzzyFilter(q);
+    if (genre) {
+      var gl = genre.toLowerCase();
+      filtered = filtered.filter(function(t) { return t.genre && t.genre.toLowerCase().includes(gl); });
+    }
+    tracks = filtered;
+    renderTracks();
+  }, 200);
 });
 
 // ─── Keyboard ────────────────────────────────────────────────────────────────
