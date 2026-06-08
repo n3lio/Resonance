@@ -288,11 +288,27 @@
     }
     .np-viz-side {
       flex: 1;
-      min-width: 0;
+      min-width: 80px;
       position: relative;
       border-left: 1px solid var(--border);
     }
     .np-viz-side canvas { width: 100%; height: 100%; display: block; }
+    .np-viz-side.fullscreen {
+      position: fixed; inset: 0; z-index: 9999; border: none;
+      flex: none; width: 100vw; height: 100vh;
+    }
+    .np-viz-side.fullscreen .viz-gear { top: 16px; right: 16px; }
+    .np-resizer {
+      width: 6px; cursor: col-resize; background: transparent;
+      position: relative; flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .np-resizer:hover, .np-resizer.active { background: var(--accent-subtle); }
+    .np-resizer::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); width: 2px; height: 30px;
+      border-radius: 1px; background: var(--border-light);
+    }
 
     .np-cover {
       width: 140px; height: 140px; border-radius: 12px; overflow: hidden;
@@ -581,6 +597,7 @@
         <span class="np-time" id="npTotal">0:00</span>
       </div>
     </div>
+    <div class="np-resizer" id="npResizer"></div>
     <!-- Viz side (desktop only) -->
     <div class="np-viz-side" id="vizContainer">
       <div class="viz-gear">
@@ -589,6 +606,7 @@
         </button>
         <div class="viz-menu" id="vizMenu">
           <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
+          <div class="viz-menu-item" data-viz="drift">Drift</div>
           <div class="viz-menu-item" data-viz="wave">Wave</div>
           <div class="viz-menu-item" data-viz="starfield">Starfield</div>
           <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
@@ -597,6 +615,7 @@
           <div class="viz-menu-item" data-viz="bars">Bars</div>
           <div class="viz-menu-item" data-viz="circular">Circular</div>
           <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
+          <div class="viz-menu-item" id="vizFullscreen">Fullscreen</div>
           <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
         </div>
       </div>
@@ -691,14 +710,15 @@
       <label>Style</label>
       <select id="settingsVizMode" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;">
         <option value="nebula">Nebula</option>
+        <option value="drift">Drift</option>
         <option value="wave">Wave</option>
         <option value="starfield">Starfield</option>
         <option value="spectrum">Spectrum</option>
         <option value="glow">Glow</option>
         <option value="aurora">Aurora</option>
-        <option value="lyrics">Lyrics</option>
         <option value="bars">Bars</option>
         <option value="circular">Circular</option>
+        <option value="lyrics">Lyrics</option>
       </select>
     </div>
 
@@ -1529,7 +1549,45 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
   });
 });
 document.getElementById('vizCloseItem').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.remove('open'); toggleViz(); });
-// vizToggleBtn removed — toggle via Settings
+
+// Fullscreen viz
+document.getElementById('vizFullscreen').addEventListener('click', function(e) {
+  e.stopPropagation();
+  document.getElementById('vizMenu').classList.remove('open');
+  var vc = document.getElementById('vizContainer');
+  vc.classList.toggle('fullscreen');
+  if (viz) viz.resize();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('vizContainer').classList.contains('fullscreen')) {
+    document.getElementById('vizContainer').classList.remove('fullscreen');
+    if (viz) viz.resize();
+  }
+});
+
+// Resizer (drag to resize hero/viz split)
+(function() {
+  var resizer = document.getElementById('npResizer');
+  var hero = document.getElementById('npHero');
+  var dragging = false;
+  resizer.addEventListener('mousedown', function(e) {
+    e.preventDefault(); dragging = true; resizer.classList.add('active');
+    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var row = hero.parentElement;
+    var rowRect = row.getBoundingClientRect();
+    var pct = ((e.clientX - rowRect.left) / rowRect.width) * 100;
+    pct = Math.max(25, Math.min(75, pct));
+    hero.style.flex = 'none';
+    hero.style.width = pct + '%';
+    if (viz) viz.resize();
+  });
+  document.addEventListener('mouseup', function() {
+    if (dragging) { dragging = false; resizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+  });
+})();
 
 // Auto-init on first play
 audio.addEventListener('play', function() { if (!vizInitialized) initViz(); if (vizVisible && viz) viz.start(); }, { once: true });
@@ -1872,6 +1930,12 @@ function remoteAddToQueue(trackId) {
     var msg = JSON.parse(e.data);
     if (msg.type === 'scan:start') {
       document.getElementById('scanIndicator').style.display = 'inline';
+      document.getElementById('trackCount').textContent = 'Scanning library...';
+      // Refresh tracks periodically during scan so user sees progress
+      var scanRefresh = setInterval(function() {
+        if (document.getElementById('scanIndicator').style.display === 'none') { clearInterval(scanRefresh); return; }
+        fetchTracks();
+      }, 4000);
     }
     if (msg.type === 'scan:done') {
       document.getElementById('scanIndicator').style.display = 'none';
