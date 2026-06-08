@@ -45,8 +45,6 @@ function createWindow() {
   mainWindow.setMenuBarVisibility(false);
   mainWindow.setMenu(null);
 
-  mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
-
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
@@ -235,8 +233,26 @@ function setupAutoUpdater() {
 }
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // Start server first so the UI can fetch from localhost
+  try {
+    await startServer(3000);
+    serverRunning = true;
+    console.log('Server auto-started on port 3000');
+  } catch (err) {
+    console.error('Failed to auto-start server:', err.message);
+  }
+
   createWindow();
+
+  // Load UI from the local server (not file://) so all fetch/WS work
+  if (serverRunning) {
+    mainWindow.loadURL('http://localhost:3000');
+  } else {
+    // Fallback to file if server failed
+    mainWindow.loadFile(path.join(__dirname, 'public', 'index.html'));
+  }
+
   createTray();
   setupAutoUpdater();
 
