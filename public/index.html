@@ -945,7 +945,7 @@ document.getElementById('trackList').addEventListener('click', function(e) {
     currentIndex = idx >= 0 ? idx : 0;
     playCurrentTrack();
     renderQueue();
-    document.querySelector('[data-tab="nowplaying"]').click();
+    document.querySelector('[data-tab="nowplaying"]').click(); scrollToCurrentInQueue();
   }
 });
 
@@ -1080,6 +1080,14 @@ function appendQueueBatch(list) {
   });
 })();
 
+// Scroll queue to current track
+function scrollToCurrentInQueue() {
+  setTimeout(function() {
+    var playing = document.querySelector('#queueList .track-item.playing');
+    if (playing) playing.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, 100);
+}
+
 // Queue click delegation
 document.getElementById('queueList').addEventListener('click', function(e) {
   var item = e.target.closest('.track-item');
@@ -1176,7 +1184,7 @@ function renderPlaylists() {
       if (!isDesktop && mobileMode === 'remote') {
         // Remote: tell desktop to play this playlist
         sendRemoteCommand('play-playlist', { playlistId: btn.dataset.id });
-        document.querySelector('[data-tab="nowplaying"]').click();
+        document.querySelector('[data-tab="nowplaying"]').click(); scrollToCurrentInQueue();
         return;
       }
       api('/playlists/' + btn.dataset.id).then(function(pl) {
@@ -1185,7 +1193,7 @@ function renderPlaylists() {
         currentIndex = 0;
         playCurrentTrack();
         renderQueue();
-        document.querySelector('[data-tab="nowplaying"]').click();
+        document.querySelector('[data-tab="nowplaying"]').click(); scrollToCurrentInQueue();
       });
     });
   });
@@ -1483,7 +1491,7 @@ document.getElementById('playAll').addEventListener('click', function() {
   currentIndex = 0;
   playCurrentTrack();
   renderQueue();
-  document.querySelector('[data-tab="nowplaying"]').click();
+  document.querySelector('[data-tab="nowplaying"]').click(); scrollToCurrentInQueue();
 });
 
 // ─── Fuzzy Search (client-side, all words must match) ────────────────────────
