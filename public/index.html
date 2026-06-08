@@ -452,7 +452,8 @@
 
     /* ─── Responsive ─── */
     @media (max-width: 768px) {
-      .player-bar { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+      body { padding-bottom: 130px; }
+      .player-bar { padding: 10px 12px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); gap: 8px; flex-wrap: wrap; position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; }
       .player-info { width: auto; flex: 1; min-width: 0; }
       .player-cover { width: 40px; height: 40px; }
       .player-controls { order: 3; }
@@ -915,6 +916,12 @@ function renderPlaylists() {
   view.querySelectorAll('.play-pl').forEach(function(btn) {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
+      if (!isDesktop && mobileMode === 'remote') {
+        // Remote: tell desktop to play this playlist
+        sendRemoteCommand('play-playlist', { playlistId: btn.dataset.id });
+        document.querySelector('[data-tab="nowplaying"]').click();
+        return;
+      }
       api('/playlists/' + btn.dataset.id).then(function(pl) {
         pl.tracks.forEach(cacheTrack);
         queue = pl.tracks.map(function(t){ return t.id; });
@@ -1323,6 +1330,8 @@ function setMobileMode(mode) {
     label.style.display = 'block';
     label.textContent = 'REMOTE';
     if (lastDesktopState) updatePlayerFromDesktop(lastDesktopState);
+    // Hide visualizer in remote mode (no local audio to analyze)
+    document.getElementById('vizContainer').classList.remove('active');
   } else {
     bar.classList.remove('remote-mode');
     label.style.display = 'none';
@@ -1370,8 +1379,10 @@ function updatePlayerFromLocal() {
   else cover.innerHTML = '<div class="ph">' + PLACEHOLDER_SVG + '</div>';
 }
 
-function sendRemoteCommand(cmd) {
-  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ command: cmd }) }).catch(function(){});
+function sendRemoteCommand(cmd, extra) {
+  var payload = { command: cmd };
+  if (extra) { for (var k in extra) payload[k] = extra[k]; }
+  fetch('/api/remote/command', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) }).catch(function(){});
 }
 
 // Remote: play a specific track on desktop
@@ -1404,29 +1415,57 @@ function remoteAddToQueue(trackId) {
     }
     // Desktop state (for mobile)
     if (msg.type === 'desktop:state' && !isDesktop) {
+      var prevState = lastDesktopState;
       lastDesktopState = msg.data;
       // Auto-switch to remote if desktop is playing and user hasn't picked stream
       if (msg.data.isPlaying && !userPickedStream) setMobileMode('remote');
       if (mobileMode === 'remote') {
         updatePlayerFromDesktop(msg.data);
-        renderQueue();
+        // Only re-render queue if something meaningful changed (not just progress)
+        var queueChanged = !prevState ||
+          prevState.currentIndex !== msg.data.currentIndex ||
+          (prevState.queue ? prevState.queue.length : 0) !== (msg.data.queue ? msg.data.queue.length : 0) ||
+          (prevState.queue && msg.data.queue && prevState.queue[0] && msg.data.queue[0] && prevState.queue[0].id !== msg.data.queue[0].id);
+        if (queueChanged) renderQueue();
       }
     }
     // Remote commands (mobile → desktop)
     if (msg.type === 'remote:command' && isDesktop) {
       var cmd = msg.data.command;
-      if (cmd === 'play') { audio.play(); isPlaying = true; updatePlayBtn(); }
+      if (cmd === 'play') { if (queue.length && currentIndex >= 0) { audio.play(); isPlaying = true; updatePlayBtn(); } }
       if (cmd === 'pause') { audio.pause(); isPlaying = false; updatePlayBtn(); }
       if (cmd === 'next') document.getElementById('nextBtn').click();
       if (cmd === 'prev') document.getElementById('prevBtn').click();
       if (cmd === 'clear') { document.getElementById('clearQueue').click(); }
       if (cmd === 'play-track' && msg.data.trackId != null) {
-        var idx = tracks.findIndex(function(t){ return t.id === msg.data.trackId; });
-        if (idx >= 0) { queue = tracks.map(function(t){return t.id}); currentIndex = idx; playCurrentTrack(); renderQueue(); }
+        // Fetch all tracks if needed (cache might be partial)
+        var tid = msg.data.trackId;
+        if (!getTrack(tid)) {
+          // Track not in cache — fetch all and retry
+          api('/tracks').then(function(all) { all.forEach(cacheTrack); tracks = all;
+            var idx = all.findIndex(function(t){return t.id === tid});
+            if (idx >= 0) { queue = all.map(function(t){return t.id}); currentIndex = idx; playCurrentTrack(); renderQueue(); }
+          });
+        } else {
+          // Build queue from all cached tracks (full library)
+          api('/tracks').then(function(all) { all.forEach(cacheTrack); tracks = all;
+            var idx = all.findIndex(function(t){return t.id === tid});
+            queue = all.map(function(t){return t.id}); currentIndex = idx >= 0 ? idx : 0; playCurrentTrack(); renderQueue();
+          });
+        }
       }
       if (cmd === 'add-to-queue' && msg.data.trackId != null) {
         queue.push(msg.data.trackId);
         renderQueue();
+      }
+      if (cmd === 'play-playlist' && msg.data.playlistId) {
+        api('/playlists/' + msg.data.playlistId).then(function(pl) {
+          pl.tracks.forEach(cacheTrack);
+          queue = pl.tracks.map(function(t){return t.id});
+          currentIndex = 0;
+          playCurrentTrack();
+          renderQueue();
+        });
       }
     }
   };

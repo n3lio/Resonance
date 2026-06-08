@@ -106,7 +106,11 @@ function getIconPath() {
 
 function getTrayIcon() {
   const iconPath = getIconPath();
-  if (iconPath) return nativeImage.createFromPath(iconPath);
+  if (iconPath) {
+    // Resize to 16x16 for tray (removes excess padding)
+    const img = nativeImage.createFromPath(iconPath);
+    return img.resize({ width: 16, height: 16 });
+  }
   const size = 16;
   const canvas = Buffer.alloc(size * size * 4);
   for (let i = 0; i < size * size; i++) {

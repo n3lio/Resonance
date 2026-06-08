@@ -518,7 +518,8 @@ function startServer(port) {
     app.post('/api/remote/command', (req, res) => {
       const { command } = req.body;
       if (!command) return res.status(400).json({ error: 'command required' });
-      broadcast({ type: 'remote:command', data: { command } });
+      // Broadcast entire payload (command + trackId/playlistId/etc.)
+      broadcast({ type: 'remote:command', data: req.body });
       res.json({ ok: true });
     });
 
