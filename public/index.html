@@ -1447,6 +1447,7 @@ function smartShuffle(ids) {
 }
 
 document.getElementById('shuffleBtn').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') { sendRemoteCommand('shuffle'); return; }
   if (queue.length < 2) return;
   var before = queue.slice(0, currentIndex + 1);
   var after = smartShuffle(queue.slice(currentIndex + 1));
@@ -1455,6 +1456,7 @@ document.getElementById('shuffleBtn').addEventListener('click', function() {
 });
 
 document.getElementById('shuffleQueue').addEventListener('click', function() {
+  if (!isDesktop && mobileMode === 'remote') { sendRemoteCommand('shuffle'); return; }
   queue = smartShuffle(queue);
   currentIndex = 0;
   if (queue.length) playCurrentTrack();
@@ -1998,8 +2000,8 @@ function remoteAddToQueue(trackId) {
     if (msg.type === 'desktop:state' && !isDesktop) {
       var prevState = lastDesktopState;
       lastDesktopState = msg.data;
-      // Auto-switch to remote if desktop is playing and user hasn't picked stream
-      if (msg.data.isPlaying && !userPickedStream) setMobileMode('remote');
+      // Auto-switch to remote if desktop is playing and user hasn't picked stream (only switch once)
+      if (msg.data.isPlaying && !userPickedStream && mobileMode !== 'remote') setMobileMode('remote');
       if (mobileMode === 'remote') {
         updatePlayerFromDesktop(msg.data);
         // Only update highlight (not full re-render — queue fetched separately)
@@ -2025,6 +2027,7 @@ function remoteAddToQueue(trackId) {
       if (cmd === 'next') document.getElementById('nextBtn').click();
       if (cmd === 'prev') document.getElementById('prevBtn').click();
       if (cmd === 'clear') { document.getElementById('clearQueue').click(); }
+      if (cmd === 'shuffle') { document.getElementById('shuffleBtn').click(); }
       if (cmd === 'play-track' && msg.data.trackId != null) {
         // Fetch all tracks if needed (cache might be partial)
         var tid = msg.data.trackId;
