@@ -295,8 +295,9 @@
     }
     .np-viz-side canvas { width: 100%; height: 100%; display: block; }
     .np-viz-side.fullscreen {
-      position: fixed; inset: 0; z-index: 9999; border: none;
-      flex: none; width: 100vw; height: 100vh;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 80px;
+      z-index: 90; border: none;
+      flex: none; width: 100vw;
     }
     .np-viz-side.fullscreen .viz-gear { top: 16px; right: 16px; }
     .np-resizer {
@@ -448,7 +449,8 @@
     .viz-menu-item { padding: 7px 11px; font-size: 0.76rem; font-family: var(--font); color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: all 0.15s; }
     .viz-menu-item:hover { background: var(--surface-hover); color: var(--text); }
     .viz-menu-item.active { color: var(--accent); }
-    .viz-menu-item.close-item { color: var(--red); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
+    .viz-menu-item.close-item { color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
+    .viz-menu-item.close-item + .viz-menu-item.close-item { border-top: none; margin-top: 0; padding-top: 7px; }
 
     /* ─── Modal ─── */
     .modal-overlay {
@@ -621,7 +623,7 @@
           <div class="viz-menu-item" data-viz="bars">Bars</div>
           <div class="viz-menu-item" data-viz="circular">Circular</div>
           <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
-          <div class="viz-menu-item" id="vizFullscreen">Fullscreen</div>
+          <div class="viz-menu-item close-item" id="vizFullscreen">Expand</div>
           <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
         </div>
       </div>
@@ -1588,17 +1590,19 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
 });
 document.getElementById('vizCloseItem').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.remove('open'); toggleViz(); });
 
-// Fullscreen viz
+// Expand/collapse viz
 document.getElementById('vizFullscreen').addEventListener('click', function(e) {
   e.stopPropagation();
   document.getElementById('vizMenu').classList.remove('open');
   var vc = document.getElementById('vizContainer');
-  vc.classList.toggle('fullscreen');
+  var isFs = vc.classList.toggle('fullscreen');
+  document.getElementById('vizFullscreen').textContent = isFs ? 'Collapse' : 'Expand';
   if (viz) viz.resize();
 });
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape' && document.getElementById('vizContainer').classList.contains('fullscreen')) {
     document.getElementById('vizContainer').classList.remove('fullscreen');
+    document.getElementById('vizFullscreen').textContent = 'Expand';
     if (viz) viz.resize();
   }
 });
