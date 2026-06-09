@@ -1426,6 +1426,33 @@ function renderAlbums() {
   });
 }
 
+// Artists whose name contains a comma — must NOT be split
+var UNSPLITTABLE_ARTISTS = ['tyler, the creator', 'earth, wind & fire', 'earth, wind and fire'];
+
+function splitArtists(artistStr) {
+  if (!artistStr) return ['Unknown'];
+  // Protect unsplittable names by temporarily replacing them
+  var lower = artistStr.toLowerCase();
+  var protected = [];
+  var work = artistStr;
+  UNSPLITTABLE_ARTISTS.forEach(function(name) {
+    var idx = lower.indexOf(name);
+    if (idx !== -1) {
+      var original = work.substring(idx, idx + name.length);
+      var placeholder = '\x00' + protected.length + '\x00';
+      work = work.substring(0, idx) + placeholder + work.substring(idx + name.length);
+      lower = work.toLowerCase();
+      protected.push(original);
+    }
+  });
+  // Split by ", "
+  var parts = work.split(', ').map(function(p) {
+    // Restore protected names
+    return p.replace(/\x00(\d+)\x00/g, function(_, i) { return protected[parseInt(i)]; });
+  }).map(function(p) { return p.trim(); }).filter(Boolean);
+  return parts.length ? parts : ['Unknown'];
+}
+
 function renderArtists() {
   var list = document.getElementById('artistList');
   var genre = document.getElementById('genreFilter').value;
@@ -1433,8 +1460,12 @@ function renderArtists() {
   var source = (genre || q) ? tracks : allTracks;
   var artistMap = {};
   source.forEach(function(t) {
-    if (!artistMap[t.artist]) artistMap[t.artist] = { artist: t.artist, count: 0 };
-    artistMap[t.artist].count++;
+    var artists = splitArtists(t.artist);
+    artists.forEach(function(a) {
+      var key = a.toLowerCase();
+      if (!artistMap[key]) artistMap[key] = { artist: a, count: 0 };
+      artistMap[key].count++;
+    });
   });
   var sort = document.getElementById('sortSelect').value;
   var artists = Object.values(artistMap).sort(function(a, b) {
@@ -1455,7 +1486,10 @@ function renderArtists() {
   list.querySelectorAll('.group-card').forEach(function(card) {
     card.addEventListener('click', function() {
       var artist = card.dataset.artist;
-      tracks = allTracks.filter(function(t) { return t.artist === artist; });
+      var artistLower = artist.toLowerCase();
+      tracks = allTracks.filter(function(t) {
+        return splitArtists(t.artist).some(function(a) { return a.toLowerCase() === artistLower; });
+      });
       currentLibView = 'tracks';
       document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
       document.getElementById('trackList').style.display = '';
