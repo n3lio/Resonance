@@ -756,6 +756,11 @@ function startServer(port) {
       });
     });
 
+    // Theme (for mobile to sync accent color)
+    app.get('/api/config/theme', (req, res) => {
+      res.json({ hue: config.hue || 38 });
+    });
+
     // Users endpoint (must be before catch-all)
     var connectedUsers = new Map();
     var userCounter = 0;

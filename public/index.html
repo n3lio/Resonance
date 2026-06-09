@@ -2325,12 +2325,16 @@ if (!isDesktop) {
     });
   });
 
-  // Fetch initial desktop state + queue
+  // Fetch initial desktop state + queue + theme
   fetch('/api/desktop/state').then(function(r){ return r.json(); }).then(function(d) {
     lastDesktopState = d;
     if (d && d.isPlaying) setMobileMode('remote');
   }).catch(function(){});
   fetchRemoteQueue();
+  // Sync theme from server config
+  fetch('/api/config/theme').then(function(r){ return r.json(); }).then(function(d) {
+    if (d.hue != null) document.documentElement.style.setProperty('--hue', d.hue);
+  }).catch(function(){});
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
