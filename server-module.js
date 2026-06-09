@@ -761,6 +761,17 @@ function startServer(port) {
       res.json({ hue: config.hue || 38 });
     });
 
+    // Desktop audio outputs (exposed for mobile remote control)
+    // The actual device list comes from the Electron renderer via POST
+    let desktopOutputs = [];
+    app.get('/api/desktop/outputs', (req, res) => {
+      res.json(desktopOutputs);
+    });
+    app.post('/api/desktop/outputs', (req, res) => {
+      desktopOutputs = req.body || [];
+      res.json({ ok: true });
+    });
+
     // Users endpoint (must be before catch-all)
     var connectedUsers = new Map();
     var userCounter = 0;

@@ -611,6 +611,7 @@
   <div class="tab active" data-tab="nowplaying">Now Playing</div>
   <div class="tab" data-tab="library">Library</div>
   <div class="tab" data-tab="playlists">Playlists</div>
+  <div class="tab" data-tab="output">Output</div>
   <div class="tab" data-tab="users" id="usersTab" style="display:none;">Users</div>
   <div class="tab" data-tab="stats" id="statsTab" style="display:none;">Stats</div>
 </div>
@@ -715,6 +716,15 @@
   </div>
 
   <!-- Users Tab (desktop only) -->
+  <!-- Output Tab -->
+  <div class="panel" id="panel-output">
+    <div style="padding:20px;">
+      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:14px;">Audio Output</h2>
+      <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px;">Select where music plays on the server</p>
+      <div id="outputList"></div>
+    </div>
+  </div>
+
   <div class="panel" id="panel-users">
     <div style="padding:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
@@ -800,6 +810,10 @@
 
     <div class="settings-section">
       <h4>Playback</h4>
+      <label>Audio output</label>
+      <select id="settingsAudioOutput" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;margin-bottom:10px;">
+        <option value="">Default</option>
+      </select>
       <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
         <input type="checkbox" id="settingsCrossfade" style="width:16px;height:16px;accent-color:var(--accent);">
         <span>Crossfade between tracks</span>
@@ -1951,6 +1965,20 @@ async function openSettings() {
     document.getElementById('settingsVizEnabled').checked = vizVisible;
     document.getElementById('settingsHue').value = cfg.hue || 38;
     document.getElementById('settingsLanEnabled').checked = cfg.lanEnabled !== false;
+    // List audio output devices
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(function(devices) {
+        var sel = document.getElementById('settingsAudioOutput');
+        sel.innerHTML = '<option value="">Default</option>';
+        devices.filter(function(d){ return d.kind === 'audiooutput'; }).forEach(function(d) {
+          var opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.textContent = d.label || ('Speaker ' + d.deviceId.slice(0,8));
+          if (cfg.audioOutput === d.deviceId) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      });
+    }
     document.getElementById('settingsCrossfade').checked = !!cfg.crossfade;
     document.getElementById('settingsCrossfadeDur').value = cfg.crossfadeDuration || 3;
     document.getElementById('crossfadeVal').textContent = cfg.crossfadeDuration || 3;
@@ -2051,6 +2079,14 @@ document.getElementById('settingsSave').addEventListener('click', async function
   var lanEnabled = document.getElementById('settingsLanEnabled').checked;
   var crossfade = document.getElementById('settingsCrossfade').checked;
   var crossfadeDuration = parseInt(document.getElementById('settingsCrossfadeDur').value) || 3;
+  var audioOutput = document.getElementById('settingsAudioOutput').value;
+
+  // Switch audio output device
+  if (audioOutput && audio.setSinkId) {
+    audio.setSinkId(audioOutput).catch(function(e) { console.warn('Could not set audio output:', e); });
+  } else if (!audioOutput && audio.setSinkId) {
+    audio.setSinkId('').catch(function(){});
+  }
 
   if (viz) viz.setMode(vizMode);
   document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){ i.classList.toggle('active', i.dataset.viz === vizMode); });
@@ -2065,7 +2101,7 @@ document.getElementById('settingsSave').addEventListener('click', async function
   settingsModal.classList.remove('open');
 
   if (window.resonance) {
-    window._appConfig = { musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration };
+    window._appConfig = { musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration, audioOutput: audioOutput };
     await window.resonance.setConfig(window._appConfig);
   }
   // Trigger rescan
@@ -2086,6 +2122,7 @@ if (isDesktop) {
     if (cfg.vizMode) { vizMode = cfg.vizMode; if (viz) viz.setMode(vizMode); }
     if (cfg.volume != null) { audio.volume = cfg.volume; document.getElementById('volumeSlider').value = cfg.volume; }
     if (cfg.hue != null) { document.documentElement.style.setProperty('--hue', cfg.hue); }
+    // Audio output: always start on default device (BT speaker may be off)
   });
 
   // Window controls in header
@@ -2101,6 +2138,20 @@ if (isDesktop) {
   window.resonance.getServerStatus().then(function(s) {
     pill.querySelector('.server-label').textContent = s.ip + ':' + (s.port || 3000);
   });
+
+  // Post audio output devices to server (for mobile Output tab)
+  function postOutputDevices() {
+    if (!navigator.mediaDevices) return;
+    navigator.mediaDevices.enumerateDevices().then(function(devices) {
+      var currentId = (window._appConfig && window._appConfig.audioOutput) || '';
+      var outputs = devices.filter(function(d){ return d.kind === 'audiooutput'; }).map(function(d) {
+        return { id: d.deviceId, label: d.label || 'Speaker ' + d.deviceId.slice(0,8), active: d.deviceId === currentId || (!currentId && d.deviceId === 'default') };
+      });
+      fetch('/api/desktop/outputs', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(outputs) }).catch(function(){});
+    });
+  }
+  postOutputDevices();
+  setInterval(postOutputDevices, 30000); // Refresh every 30s (devices may connect/disconnect)
 
   // Broadcast desktop player state to server (so mobile can see it)
   function broadcastDesktopState() {
@@ -2195,6 +2246,63 @@ function fetchUsers() {
     }).join('');
   }).catch(function(){});
 }
+
+// ─── Output Tab ──────────────────────────────────────────────────────────────
+function fetchOutputDevices() {
+  var list = document.getElementById('outputList');
+  if (!list) return;
+
+  if (isDesktop && navigator.mediaDevices) {
+    // Desktop: list local audio output devices
+    navigator.mediaDevices.enumerateDevices().then(function(devices) {
+      var outputs = devices.filter(function(d) { return d.kind === 'audiooutput'; });
+      var currentId = (window._appConfig && window._appConfig.audioOutput) || '';
+      list.innerHTML = outputs.map(function(d) {
+        var active = d.deviceId === currentId || (!currentId && d.deviceId === 'default');
+        var label = d.label || ('Speaker ' + d.deviceId.slice(0, 8));
+        return '<div class="group-card" data-device="' + d.deviceId + '" style="' + (active ? 'background:var(--accent-subtle);border-left:3px solid var(--accent);' : '') + '">' +
+          '<div class="group-icon" style="background:' + (active ? 'var(--accent)' : 'var(--surface)') + ';color:' + (active ? '#0a0a0b' : 'var(--text-dim)') + ';font-size:1.2rem;">&#9835;</div>' +
+          '<div><div class="group-name">' + esc(label) + '</div><div class="group-count">' + (active ? 'Active' : 'Click to switch') + '</div></div></div>';
+      }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No audio devices found</p>';
+
+      list.querySelectorAll('.group-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          var deviceId = card.dataset.device;
+          if (audio.setSinkId) {
+            audio.setSinkId(deviceId).then(function() {
+              window._appConfig = window._appConfig || {};
+              window._appConfig.audioOutput = deviceId;
+              if (window.resonance) window.resonance.setConfig({ audioOutput: deviceId });
+              fetchOutputDevices(); // refresh UI
+              showToast('Output switched');
+            }).catch(function(e) { showToast('Failed: ' + e.message); });
+          }
+        });
+      });
+    });
+  } else {
+    // Mobile: show remote output control
+    fetch('/api/desktop/outputs').then(function(r){ return r.json(); }).then(function(outputs) {
+      list.innerHTML = outputs.map(function(d) {
+        return '<div class="group-card" data-device="' + d.id + '" style="' + (d.active ? 'background:var(--accent-subtle);border-left:3px solid var(--accent);' : '') + '">' +
+          '<div class="group-icon" style="background:' + (d.active ? 'var(--accent)' : 'var(--surface)') + ';color:' + (d.active ? '#0a0a0b' : 'var(--text-dim)') + ';font-size:1.2rem;">&#9835;</div>' +
+          '<div><div class="group-name">' + esc(d.label) + '</div><div class="group-count">' + (d.active ? 'Active' : 'Tap to switch') + '</div></div></div>';
+      }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No outputs available</p>';
+
+      list.querySelectorAll('.group-card').forEach(function(card) {
+        card.addEventListener('click', function() {
+          sendRemoteCommand('set-output', { deviceId: card.dataset.device });
+          showToast('Switching output...');
+          setTimeout(fetchOutputDevices, 1000);
+        });
+      });
+    }).catch(function() {
+      list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-dim);">Connect to server to see outputs</p>';
+    });
+  }
+}
+
+document.querySelector('[data-tab="output"]').addEventListener('click', fetchOutputDevices);
 
 function fetchStats() {
   fetch('/api/stats').then(function(r){ return r.json(); }).then(function(s) {
@@ -2389,6 +2497,14 @@ function remoteAddToQueue(trackId) {
       if (cmd === 'prev') document.getElementById('prevBtn').click();
       if (cmd === 'clear') { document.getElementById('clearQueue').click(); }
       if (cmd === 'shuffle') { document.getElementById('shuffleBtn').click(); }
+      if (cmd === 'set-output' && msg.data.deviceId && audio.setSinkId) {
+        audio.setSinkId(msg.data.deviceId).then(function() {
+          window._appConfig = window._appConfig || {};
+          window._appConfig.audioOutput = msg.data.deviceId;
+          if (window.resonance) window.resonance.setConfig({ audioOutput: msg.data.deviceId });
+          postOutputDevices();
+        }).catch(function(e) { console.warn('set-output failed:', e); });
+      }
       if (cmd === 'play-track' && msg.data.trackId != null) {
         // Fetch all tracks if needed (cache might be partial)
         var tid = msg.data.trackId;
