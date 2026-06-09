@@ -552,6 +552,7 @@
 <header>
   <h1>Resonance</h1>
   <span class="scan-indicator" id="scanIndicator" style="display:none;font-size:0.72rem;color:var(--accent);animation:pulse 1.2s infinite;">Scanning...</span>
+  <span id="updateBadge" style="display:none;font-size:0.68rem;color:var(--green);background:rgba(122,196,122,0.1);padding:3px 8px;border-radius:12px;cursor:pointer;border:1px solid rgba(122,196,122,0.3);"></span>
   <div class="header-right">
     <div class="mode-toggle" id="modeToggle" style="display:none;">
       <button class="mode-btn active" data-mode="remote">Remote</button>
@@ -1847,8 +1848,20 @@ if (isDesktop) {
   setInterval(function() { if (document.getElementById('panel-users').classList.contains('active')) fetchUsers(); }, 10000);
 
   // Updates
-  window.resonance.onUpdateAvailable(function(d) { showToast('Update available: v' + d.version); });
-  window.resonance.onUpdateDownloaded(function(d) { showToast('v' + d.version + ' ready — restart to install'); });
+  window.resonance.onUpdateAvailable(function(d) {
+    var badge = document.getElementById('updateBadge');
+    badge.textContent = 'v' + d.version + ' downloading...';
+    badge.style.display = 'inline';
+  });
+  window.resonance.onUpdateDownloaded(function(d) {
+    var badge = document.getElementById('updateBadge');
+    badge.textContent = 'v' + d.version + ' ready — click to restart';
+    badge.style.display = 'inline';
+    badge.style.color = 'var(--accent)';
+    badge.style.borderColor = 'var(--accent)';
+    badge.style.background = 'var(--accent-subtle)';
+    badge.onclick = function() { window.resonance.restartToUpdate(); };
+  });
 }
 
 function fetchUsers() {

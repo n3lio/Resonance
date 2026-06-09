@@ -129,6 +129,10 @@ ipcMain.handle('server:status', () => {
 
 ipcMain.handle('app:version', () => app.getVersion());
 
+ipcMain.handle('app:restart-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
 // Window controls (frameless)
 ipcMain.handle('window:minimize', () => { if (mainWindow) mainWindow.minimize(); });
 ipcMain.handle('window:maximize', () => {
