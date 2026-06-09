@@ -683,6 +683,15 @@ function startServer(port) {
       res.json({ ok: true });
     });
 
+    // Users endpoint (must be before catch-all)
+    var connectedUsers = new Map();
+    var userCounter = 0;
+    app.get('/api/users', (req, res) => {
+      const users = [];
+      connectedUsers.forEach((u) => users.push({ id: u.id, name: u.name, connectedAt: u.connectedAt }));
+      res.json(users);
+    });
+
     // Catch-all: serve SPA
     app.get('*', (req, res) => {
       if (req.path.startsWith('/api/')) {
@@ -699,9 +708,6 @@ function startServer(port) {
       console.log(`Resonance server started on ${bindAddr}:${usePort} (LAN: ${bindAddr === '0.0.0.0' ? 'ON' : 'OFF'})`);
 
       // WebSocket + connected users tracking
-      const connectedUsers = new Map(); // ws → { id, name, connectedAt }
-      let userCounter = 0;
-
       wssInstance = new WebSocketServer({ server: serverInstance, maxPayload: 2048 });
       wssInstance.on('connection', (ws, req) => {
         if (clients.size >= 20) {
@@ -720,7 +726,6 @@ function startServer(port) {
         ws.on('message', (msg) => {
           try {
             const data = JSON.parse(msg);
-            // Allow client to set a display name
             if (data.type === 'set-name' && data.name) {
               const user = connectedUsers.get(ws);
               if (user) { user.name = data.name.slice(0, 20); broadcast({ type: 'users:changed', data: { count: connectedUsers.size } }); }
@@ -730,12 +735,6 @@ function startServer(port) {
 
         ws.on('close', () => { clients.delete(ws); connectedUsers.delete(ws); broadcast({ type: 'users:changed', data: { count: connectedUsers.size } }); });
         ws.on('error', () => { clients.delete(ws); connectedUsers.delete(ws); });
-      });
-
-      app.get('/api/users', (req, res) => {
-        const users = [];
-        connectedUsers.forEach((u) => users.push({ id: u.id, name: u.name, connectedAt: u.connectedAt }));
-        res.json(users);
       });
 
       // Scan library on start

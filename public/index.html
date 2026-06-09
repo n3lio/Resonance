@@ -664,7 +664,10 @@
   <!-- Users Tab (desktop only) -->
   <div class="panel" id="panel-users">
     <div style="padding:20px;">
-      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:14px;">Connected Devices</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Connected Devices</h2>
+        <button class="toolbar-btn" id="refreshUsersBtn" style="padding:5px 10px;font-size:0.72rem;">Refresh</button>
+      </div>
       <div id="usersList"></div>
     </div>
   </div>
@@ -1838,7 +1841,7 @@ if (isDesktop) {
   // Show Users tab (desktop only)
   document.getElementById('usersTab').style.display = '';
   document.querySelector('[data-tab="users"]').addEventListener('click', fetchUsers);
-  // Refresh users every 10s while on that tab
+  document.getElementById('refreshUsersBtn').addEventListener('click', fetchUsers);
   setInterval(function() { if (document.getElementById('panel-users').classList.contains('active')) fetchUsers(); }, 10000);
 
   // Updates
@@ -1850,7 +1853,10 @@ function fetchUsers() {
   fetch('/api/users').then(function(r){ return r.json(); }).then(function(users) {
     var list = document.getElementById('usersList');
     if (!list) return;
-    if (!users.length) { list.textContent = 'No devices connected'; return; }
+    // Filter out the first connection (desktop itself)
+    if (users.length > 1) users = users.slice(1);
+    else { users = []; }
+    if (!users.length) { list.textContent = 'No remote devices connected'; return; }
     var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
     list.innerHTML = users.map(function(u, i) {
       var color = USER_COLORS[i % USER_COLORS.length];
