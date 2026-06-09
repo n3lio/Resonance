@@ -1,85 +1,51 @@
 # Resonance
 
-Personal music player & LAN streamer for Windows. Play your MP3 collection and stream it to any device on your network.
+Personal music player & LAN streamer for Windows. Play your collection, control it from your phone.
 
 ---
 
 ## Download
 
-Go to the [**Releases**](https://github.com/n3lio/Resonance/releases/latest) page and grab the installer:
-
-| Platform | File | Requirements |
-|----------|------|--------------|
-| **Windows** | `Resonance-Setup-X.X.X.exe` | Windows 10 or 11 |
-
----
-
-## Installation
-
-1. Download `Resonance-Setup-X.X.X.exe` from Releases
-2. Double-click, follow the installer
-3. Launch **Resonance** — it starts scanning your music automatically
-
----
-
-## Usage
-
-1. On first launch, the app scans `C:\Users\<you>\Music` by default
-2. Browse, search, queue tracks — play locally
-3. Toggle **Server Mode** to stream to other devices on your WiFi
-4. Open `http://<your-PC-IP>:3000` on your phone/tablet/laptop
+[**Latest Release**](https://github.com/n3lio/Resonance/releases/latest) — grab `Resonance-Setup-X.X.X.exe`, install, done.
 
 ---
 
 ## Features
 
-- Local playback with audio visualizer (5 modes)
-- LAN streaming to any device (phone, tablet, laptop)
-- Real-time sync between all connected devices (WebSocket)
-- Search by title, artist, album, genre
-- Queue management, shuffle
-- Playlist creation and persistence
-- Cover art display (embedded ID3 tags)
-- Auto-detect new music files
-- Supports MP3, M4A, FLAC, OGG, WAV, AAC
-- Auto-update: notified when a new version is available
-- Minimize to system tray
+- Play MP3, M4A, FLAC, OGG, WAV, AAC
+- Stream to any device on your network (phone, tablet, laptop)
+- Remote control from mobile (play, pause, skip, volume, browse library)
+- Fuzzy search across title, artist, album, genre
+- Smart shuffle (spaces artists, varies genres)
+- 10 audio visualizers (Nebula, Drift, Starfield, Aurora, Spectrum, Glow, Bars, Circular, Wave, Lyrics)
+- Smart playlists by genre + drag & drop reorder
+- Play history tracking
+- QR code in settings for instant mobile access
+- Customizable accent color theme
+- Auto-update
 
 ---
 
-## Configuration
+## Setup
 
-After install, edit `config.json` in the app folder:
+1. Install and launch
+2. Go to Settings (gear icon) → add your music folder(s)
+3. Wait for scan to complete
+4. Play
 
-```json
-{
-  "musicFolders": ["C:/Users/YourName/Music"],
-  "excludeFolders": ["iTunes"],
-  "port": 3000,
-  "scanOnStartup": true,
-  "watchForChanges": true
-}
-```
+Mobile: scan the QR code in Settings, or open `http://<your-PC-IP>:3000` on your phone.
 
 ---
 
 ## Development
 
 ```
-Resonance/
-├── main.js              # Electron main process
-├── preload.js           # Context bridge
-├── server-module.js     # Express + WebSocket server
-├── config.json          # Music folders config
-├── public/              # Frontend SPA + visualizer
-├── assets/              # App icon
-└── .github/workflows/   # CI: tag → build .exe → Release
+npm install
+npm start        # dev (Electron)
+npm run build    # produce .exe
 ```
 
-### Release process
-1. Bump version in `package.json`
-2. `git tag vX.X.X && git push --tags`
-3. GitHub Actions builds and publishes the Release
+Release: bump version in `package.json`, then `git tag vX.X.X && git push --tags`.
 
 ---
 
