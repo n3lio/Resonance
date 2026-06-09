@@ -247,7 +247,7 @@
     .group-name { font-size: 0.85rem; font-weight: 500; }
     .group-count { font-size: 0.72rem; color: var(--text-muted); }
     .toolbar-btn.primary {
-      background: linear-gradient(135deg, var(--accent), #d49020);
+      background: linear-gradient(135deg, var(--accent), hsl(var(--hue), 90%, 78%));
       color: #0a0a0b; border-color: var(--accent); font-weight: 600;
     }
     .toolbar-btn.primary:hover { box-shadow: 0 4px 16px var(--accent-glow); }
@@ -406,7 +406,7 @@
       display: flex; align-items: center; gap: 14px;
       background: rgba(18,16,14,0.92);
       backdrop-filter: blur(20px);
-      border-top: 1px solid rgba(232,164,53,0.12);
+      border-top: 1px solid var(--accent-subtle);
       flex-shrink: 0;
     }
 
@@ -425,13 +425,13 @@
       padding: 7px; border-radius: 50%; transition: all 0.15s;
       width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
     }
-    .player-controls button:hover { background: rgba(232,164,53,0.1); color: var(--text); }
+    .player-controls button:hover { background: var(--accent-subtle); color: var(--text); }
     .player-controls .play-btn {
-      background: linear-gradient(135deg, var(--accent), #d49020);
+      background: linear-gradient(135deg, var(--accent), hsl(var(--hue), 90%, 78%));
       color: #0a0a0b; width: 42px; height: 42px;
       box-shadow: 0 4px 16px var(--accent-glow);
     }
-    .player-controls .play-btn:hover { background: linear-gradient(135deg, #f0b84a, var(--accent)); box-shadow: 0 6px 24px rgba(232,164,53,0.3); color: #0a0a0b; }
+    .player-controls .play-btn:hover { background: linear-gradient(135deg, hsl(var(--hue), 90%, 78%), var(--accent)); box-shadow: 0 6px 24px var(--accent-glow); color: #0a0a0b; }
 
     .progress-container { flex: 1; display: flex; align-items: center; gap: 8px; }
     .progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; cursor: pointer; position: relative; }
@@ -496,7 +496,7 @@
       font-size: 0.83rem; font-family: var(--font); font-weight: 500; transition: all 0.2s;
     }
     .modal-actions button:hover { border-color: var(--text-muted); }
-    .modal-actions button.primary { background: linear-gradient(135deg,var(--accent),#d49020); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
+    .modal-actions button.primary { background: linear-gradient(135deg,var(--accent),hsl(var(--hue), 90%, 78%)); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
 
     /* ─── Settings-specific ─── */
     .folder-list { margin-top: 8px; }
@@ -539,7 +539,7 @@
       font-size: 0.7rem; font-family: var(--font); font-weight: 500; transition: all 0.2s;
     }
     .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
-    .mode-btn.active { background: linear-gradient(135deg,var(--accent),#d49020); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
+    .mode-btn.active { background: linear-gradient(135deg,var(--accent),hsl(var(--hue), 90%, 78%)); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
 
     /* Remote mode indicator on player bar */
     .player-bar.remote-mode { border-top-color: rgba(122,196,122,0.3); }
@@ -679,8 +679,11 @@
   <!-- Playlists Tab -->
   <div class="panel" id="panel-playlists">
     <div class="toolbar">
-      <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
-      <button class="toolbar-btn" id="saveQueueAsPlaylist">Save Queue as Playlist</button>
+      <span class="track-count" id="playlistCount" style="padding:0;margin:0;"></span>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button class="toolbar-btn" id="saveQueueAsPlaylist">Save Queue</button>
+        <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
+      </div>
     </div>
     <div class="playlists-view" id="playlistsView"></div>
   </div>
@@ -1389,6 +1392,7 @@ function getPlaylistColor(name, index) {
 
 function renderPlaylists() {
   var view = document.getElementById('playlistsView');
+  document.getElementById('playlistCount').textContent = playlists.length + ' playlist' + (playlists.length !== 1 ? 's' : '');
   if (!playlists.length) { view.innerHTML = '<p style="color:var(--text-muted);font-size:0.83rem;">No playlists yet.</p>'; return; }
   view.innerHTML = playlists.map(function(p, i) {
     var color = getPlaylistColor(p.name, i);
