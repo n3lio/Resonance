@@ -336,6 +336,7 @@
       background: var(--bg);
     }
     .np-viz-side.fullscreen .viz-gear { bottom: 16px; left: 16px; top: auto; right: auto; }
+    .np-viz-side.fullscreen .viz-menu { top: auto; bottom: 34px; right: auto; left: 0; }
     .np-resizer {
       width: 6px; cursor: col-resize; background: transparent;
       position: relative; flex-shrink: 0;
@@ -733,7 +734,7 @@
   <!-- EQ Tab -->
   <div class="panel" id="panel-eq">
     <div style="padding:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Equalizer</h2>
         <select id="eqPreset" class="genre-select" style="max-width:140px;">
           <option value="flat">Flat</option>
@@ -752,7 +753,9 @@
   <!-- Output Tab -->
   <div class="panel" id="panel-output">
     <div style="padding:20px;">
-      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:14px;">Audio Output</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
+        <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Audio Output</h2>
+      </div>
       <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px;">Select where music plays on the server</p>
       <div id="outputList"></div>
     </div>
@@ -760,7 +763,7 @@
 
   <div class="panel" id="panel-users">
     <div style="padding:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Connected Devices</h2>
         <button class="toolbar-btn" id="refreshUsersBtn" style="padding:5px 10px;font-size:0.72rem;">Refresh</button>
       </div>
@@ -771,7 +774,9 @@
   <!-- Stats Tab -->
   <div class="panel" id="panel-stats">
     <div style="padding:20px;overflow-y:auto;" id="statsContent">
-      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:16px;">Listening Stats</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
+        <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Listening Stats</h2>
+      </div>
       <div id="statsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         <div><h3 style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Top Artists (30 days)</h3><div id="statsArtists"></div></div>
@@ -1299,20 +1304,30 @@ document.querySelectorAll('.lib-view-btn').forEach(function(btn) {
     document.getElementById('trackList').style.display = currentLibView === 'tracks' ? '' : 'none';
     document.getElementById('albumList').style.display = currentLibView === 'albums' ? '' : 'none';
     document.getElementById('artistList').style.display = currentLibView === 'artists' ? '' : 'none';
-    if (currentLibView === 'albums') renderAlbums();
-    if (currentLibView === 'artists') renderArtists();
+    // Apply current filters/sort to the new view
+    applyFilters();
   });
 });
 
 function renderAlbums() {
   var list = document.getElementById('albumList');
+  var genre = document.getElementById('genreFilter').value;
+  var q = document.getElementById('search').value.trim();
+  var source = (genre || q) ? tracks : allTracks;
   var albumMap = {};
-  allTracks.forEach(function(t) {
+  source.forEach(function(t) {
     var key = t.album + '|||' + t.artist;
     if (!albumMap[key]) albumMap[key] = { album: t.album, artist: t.artist, tracks: [], hasCover: t.hasCover, coverId: t.id };
     albumMap[key].tracks.push(t.id);
   });
-  var albums = Object.values(albumMap).sort(function(a, b) { return a.album.localeCompare(b.album); });
+  var sort = document.getElementById('sortSelect').value;
+  var albums = Object.values(albumMap).sort(function(a, b) {
+    switch(sort) {
+      case 'title-desc': return b.album.localeCompare(a.album);
+      case 'artist': return a.artist.localeCompare(b.artist);
+      default: return a.album.localeCompare(b.album);
+    }
+  });
   document.getElementById('trackCount').textContent = albums.length + ' album' + (albums.length !== 1 ? 's' : '');
   list.innerHTML = albums.map(function(a) {
     var coverHtml = a.hasCover
@@ -1337,12 +1352,22 @@ function renderAlbums() {
 
 function renderArtists() {
   var list = document.getElementById('artistList');
+  var genre = document.getElementById('genreFilter').value;
+  var q = document.getElementById('search').value.trim();
+  var source = (genre || q) ? tracks : allTracks;
   var artistMap = {};
-  allTracks.forEach(function(t) {
+  source.forEach(function(t) {
     if (!artistMap[t.artist]) artistMap[t.artist] = { artist: t.artist, count: 0 };
     artistMap[t.artist].count++;
   });
-  var artists = Object.values(artistMap).sort(function(a, b) { return b.count - a.count; });
+  var sort = document.getElementById('sortSelect').value;
+  var artists = Object.values(artistMap).sort(function(a, b) {
+    switch(sort) {
+      case 'title': case 'artist': return a.artist.localeCompare(b.artist);
+      case 'title-desc': return b.artist.localeCompare(a.artist);
+      default: return b.count - a.count;
+    }
+  });
   document.getElementById('trackCount').textContent = artists.length + ' artist' + (artists.length !== 1 ? 's' : '');
   var ARTIST_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6','#f59e0b','#e05555'];
   list.innerHTML = artists.map(function(a, i) {
@@ -1556,6 +1581,9 @@ function playCurrentTrack() {
   if (currentIndex < 0 || currentIndex >= queue.length) return;
   var trackId = queue[currentIndex];
   var track = getTrack(trackId);
+
+  // Ensure AudioContext is resumed (needed for playback through viz pipeline)
+  if (viz && viz.audioCtx && viz.audioCtx.state === 'suspended') viz.audioCtx.resume();
 
   audio.src = '/api/stream/' + trackId;
   audio.load();
@@ -1835,7 +1863,10 @@ function applyFilters() {
   });
 
   tracks = filtered;
-  renderTracks();
+  // Re-render current view (not just tracks)
+  if (currentLibView === 'albums') renderAlbums();
+  else if (currentLibView === 'artists') renderArtists();
+  else renderTracks();
   // Show clear button if any filter is active
   var hasFilter = q || genre || document.getElementById('sortSelect').value !== 'title';
   document.getElementById('clearFilters').style.display = hasFilter ? '' : 'none';
@@ -2098,7 +2129,7 @@ document.getElementById('downloadQrBtn').addEventListener('click', function() {
     ctx.fillRect(0, 0, 400, 400);
     ctx.drawImage(img, 20, 20, 360, 360);
     var a = document.createElement('a');
-    a.download = 'resonance-qr.png';
+    a.download = 'ghetto-blaster-qr.png';
     a.href = canvas.toDataURL('image/png');
     a.click();
   };
@@ -2116,9 +2147,13 @@ document.getElementById('settingsSave').addEventListener('click', async function
 
   // Switch audio output device
   if (audioOutput && audio.setSinkId) {
-    audio.setSinkId(audioOutput).catch(function(e) { console.warn('Could not set audio output:', e); });
+    audio.setSinkId(audioOutput).catch(function(e) {
+      console.warn('Could not set audio output:', e);
+      audio.setSinkId('default').catch(function(){});
+      showToast('Audio device unavailable — using default');
+    });
   } else if (!audioOutput && audio.setSinkId) {
-    audio.setSinkId('').catch(function(){});
+    audio.setSinkId('default').catch(function(){});
   }
 
   if (viz) viz.setMode(vizMode);
@@ -2249,10 +2284,11 @@ if (isDesktop) {
     var badge = document.getElementById('updateBadge');
     badge.textContent = 'v' + d.version + ' downloading...';
     badge.style.display = 'inline';
+    badge.onclick = function() { window.open('https://github.com/n3lio/Ghetto-Blaster/releases/latest', '_blank'); };
   });
   window.resonance.onUpdateDownloaded(function(d) {
     var badge = document.getElementById('updateBadge');
-    badge.textContent = 'v' + d.version + ' ready — click to restart';
+    badge.textContent = 'v' + d.version + ' ready — click to install';
     badge.style.display = 'inline';
     badge.style.color = 'var(--accent)';
     badge.style.borderColor = 'var(--accent)';
@@ -2268,7 +2304,7 @@ function fetchUsers() {
     // Filter out the first connection (desktop itself)
     if (users.length > 1) users = users.slice(1);
     else { users = []; }
-    if (!users.length) { list.textContent = 'No remote devices connected'; return; }
+    if (!users.length) { list.innerHTML = '<p style="font-size:0.78rem;color:var(--text-dim);">No remote devices connected</p>'; return; }
     var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
     list.innerHTML = users.map(function(u, i) {
       var color = USER_COLORS[i % USER_COLORS.length];
@@ -2308,7 +2344,19 @@ function fetchOutputDevices() {
               if (window.resonance) window.resonance.setConfig({ audioOutput: deviceId });
               fetchOutputDevices(); // refresh UI
               showToast('Output switched');
-            }).catch(function(e) { showToast('Failed: ' + e.message); });
+            }).catch(function(e) {
+              console.warn('setSinkId failed:', e);
+              // Fallback to default device
+              audio.setSinkId('default').then(function() {
+                window._appConfig = window._appConfig || {};
+                window._appConfig.audioOutput = 'default';
+                if (window.resonance) window.resonance.setConfig({ audioOutput: 'default' });
+                fetchOutputDevices();
+                showToast('Device unavailable — switched to default');
+              }).catch(function() {
+                showToast('Cannot switch output — device unavailable');
+              });
+            });
           }
         });
       });

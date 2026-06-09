@@ -794,7 +794,7 @@ function startServer(port) {
     const bindAddr = config.lanEnabled === false ? '127.0.0.1' : '0.0.0.0';
     serverInstance = app.listen(usePort, bindAddr, () => {
       const lanIp = getLanIp();
-      console.log(`Resonance server started on ${bindAddr}:${usePort} (LAN: ${bindAddr === '0.0.0.0' ? 'ON' : 'OFF'})`);
+      console.log(`Ghetto Blaster server started on ${bindAddr}:${usePort} (LAN: ${bindAddr === '0.0.0.0' ? 'ON' : 'OFF'})`);
 
       // WebSocket + connected users tracking
       wssInstance = new WebSocketServer({ server: serverInstance, maxPayload: 2048 });
@@ -885,7 +885,7 @@ function stopServer() {
     if (serverInstance) {
       serverInstance.close(() => {
         serverInstance = null;
-        console.log('Resonance server stopped');
+        console.log('Ghetto Blaster server stopped');
         resolve();
       });
     } else {

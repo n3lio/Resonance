@@ -37,7 +37,11 @@ class Visualizer {
   }
 
   initAudio() {
-    if (this.audioCtx) return;
+    if (this.audioCtx) {
+      // Ensure resumed on subsequent calls
+      if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+      return;
+    }
     this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     this.analyser = this.audioCtx.createAnalyser();
     this.analyser.fftSize = 512;
@@ -47,6 +51,8 @@ class Visualizer {
     this.analyser.connect(this.audioCtx.destination);
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.freqArray = new Uint8Array(this.analyser.frequencyBinCount);
+    // Resume immediately (Chromium requires user gesture, but Electron usually allows it)
+    if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
   }
 
   start() { if (this.running) return; this.running = true; this.loop(); }
