@@ -47,6 +47,7 @@ function setDataDir(dir) {
   config = loadConfig();
   playlists = loadPlaylists();
   history = loadHistory();
+  favorites = loadFavorites();
   createDefaultPlaylists();
   // Ensure covers dir exists
   const coversDir = path.join(DATA_DIR, '__covers');
@@ -114,6 +115,20 @@ function loadHistory() {
 
 function saveHistory() {
   fs.writeFileSync(getHistoryPath(), JSON.stringify(history.slice(0, 5000), null, 2));
+}
+
+// ─── Favorites ──────────────────────────────────────────────────────────────
+function getFavoritesPath() { return path.join(DATA_DIR, 'favorites.json'); }
+let favorites = loadFavorites();
+
+function loadFavorites() {
+  try { var p = getFavoritesPath(); if (fs.existsSync(p)) return new Set(JSON.parse(fs.readFileSync(p, 'utf8'))); }
+  catch(e) {}
+  return new Set();
+}
+
+function saveFavorites() {
+  fs.writeFileSync(getFavoritesPath(), JSON.stringify([...favorites]));
 }
 
 function logPlay(trackId) {
@@ -347,7 +362,7 @@ function startServer(port) {
           (t.genre && t.genre.toLowerCase().includes(q))
         );
       }
-      res.json(results.map(({ path: _, ...rest }) => rest));
+      res.json(results.map(({ path: _, ...rest }) => ({ ...rest, favorited: favorites.has(rest.id) })));
     });
 
     app.get('/api/genres', (req, res) => {
@@ -692,6 +707,53 @@ function startServer(port) {
       isPlaying = true;
       broadcast({ type: 'state', data: getState() });
       res.json({ ok: true });
+    });
+
+    // ─── Favorites ─────────────────────────────────────────────────────────
+    app.get('/api/favorites', (req, res) => {
+      res.json([...favorites]);
+    });
+
+    app.post('/api/favorites/toggle', (req, res) => {
+      const { trackId } = req.body;
+      if (trackId == null) return res.status(400).json({ error: 'trackId required' });
+      if (favorites.has(trackId)) favorites.delete(trackId);
+      else favorites.add(trackId);
+      saveFavorites();
+      res.json({ ok: true, favorited: favorites.has(trackId) });
+    });
+
+    // ─── Stats ──────────────────────────────────────────────────────────────
+    app.get('/api/stats', (req, res) => {
+      const now = new Date();
+      const weekAgo = new Date(now - 7 * 24 * 60 * 60 * 1000);
+      const monthAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+
+      const weekPlays = history.filter(h => new Date(h.playedAt) > weekAgo);
+      const monthPlays = history.filter(h => new Date(h.playedAt) > monthAgo);
+
+      // Top artists
+      const artistCounts = {};
+      monthPlays.forEach(h => { artistCounts[h.artist] = (artistCounts[h.artist] || 0) + 1; });
+      const topArtists = Object.entries(artistCounts).sort((a,b) => b[1]-a[1]).slice(0, 10).map(([name, count]) => ({ name, count }));
+
+      // Top genres
+      const genreCounts = {};
+      monthPlays.forEach(h => { if (h.genre) genreCounts[h.genre] = (genreCounts[h.genre] || 0) + 1; });
+      const topGenres = Object.entries(genreCounts).sort((a,b) => b[1]-a[1]).slice(0, 10).map(([name, count]) => ({ name, count }));
+
+      // Listening time estimate (average track ~3.5min)
+      const weekMinutes = Math.round(weekPlays.length * 3.5);
+      const monthMinutes = Math.round(monthPlays.length * 3.5);
+
+      res.json({
+        week: { plays: weekPlays.length, minutes: weekMinutes },
+        month: { plays: monthPlays.length, minutes: monthMinutes },
+        topArtists,
+        topGenres,
+        totalTracks: library.length,
+        favorites: favorites.size,
+      });
     });
 
     // Users endpoint (must be before catch-all)

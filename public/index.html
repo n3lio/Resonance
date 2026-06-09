@@ -215,6 +215,12 @@
       white-space: nowrap;
     }
     .toolbar-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+    .lib-view-btn.active { background: var(--surface-active); color: var(--text); border-color: var(--border-light); }
+    .group-card { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.15s; }
+    .group-card:hover { background: var(--accent-subtle); }
+    .group-icon { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: #0a0a0b; flex-shrink: 0; }
+    .group-name { font-size: 0.85rem; font-weight: 500; }
+    .group-count { font-size: 0.72rem; color: var(--text-muted); }
     .toolbar-btn.primary {
       background: linear-gradient(135deg, var(--accent), #d49020);
       color: #0a0a0b; border-color: var(--accent); font-weight: 600;
@@ -263,11 +269,14 @@
     .track-artist { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
     .track-genre { font-size: 0.66rem; padding: 3px 7px; border-radius: 12px; white-space: nowrap; font-weight: 500; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
     .track-duration { font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-    .track-item .add-btn {
-      opacity: 0; background: none; border: none; color: var(--accent);
-      cursor: pointer; font-size: 1.1rem; padding: 4px 8px; transition: opacity 0.15s;
+    .track-item .add-btn, .track-item .fav-btn {
+      opacity: 0; background: none; border: none;
+      cursor: pointer; font-size: 1rem; padding: 4px 6px; transition: opacity 0.15s;
     }
-    .track-item:hover .add-btn { opacity: 1; }
+    .track-item .add-btn { color: var(--accent); }
+    .track-item .fav-btn { color: var(--text-dim); }
+    .track-item .fav-btn.liked { color: var(--red); opacity: 1; }
+    .track-item:hover .add-btn, .track-item:hover .fav-btn { opacity: 1; }
 
     /* ─── Now Playing Hero + Viz side-by-side on desktop ─── */
     .np-row {
@@ -309,6 +318,16 @@
     .np-resizer::after {
       content: ''; position: absolute; top: 50%; left: 50%;
       transform: translate(-50%, -50%); width: 2px; height: 30px;
+      border-radius: 1px; background: var(--border-light);
+    }
+    .np-vresizer {
+      height: 6px; cursor: row-resize; background: transparent;
+      flex-shrink: 0; transition: background 0.2s; position: relative;
+    }
+    .np-vresizer:hover, .np-vresizer.active { background: var(--accent-subtle); }
+    .np-vresizer::after {
+      content: ''; position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); width: 30px; height: 2px;
       border-radius: 1px; background: var(--border-light);
     }
 
@@ -504,12 +523,12 @@
     .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .settings-section h4 { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
 
-    /* ─── Scrollbar ─── */
-    ::-webkit-scrollbar { width: 9px; }
-    ::-webkit-scrollbar-track { background: transparent; margin: 4px 0; }
-    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 5px; border: 3px solid var(--bg); }
+    /* ─── Scrollbar (all lists) ─── */
+    ::-webkit-scrollbar { width: 12px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 6px; border: 3px solid var(--bg); min-height: 40px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
-    .track-list { padding-right: 2px; margin-right: 4px; }
+    .track-list, .playlists-view { padding-right: 4px; }
 
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -562,6 +581,7 @@
       <span class="dot"></span>
       <span class="server-label">LAN Server</span>
     </span>
+    <button class="settings-btn" id="shortcutsBtn" title="Keyboard shortcuts" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
     <button class="settings-btn" id="settingsBtn" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
@@ -631,6 +651,7 @@
       <canvas id="vizCanvas"></canvas>
     </div>
     </div><!-- end np-row -->
+    <div class="np-vresizer" id="npVResizer"></div>
     <!-- Queue below -->
     <div class="queue-header">
       <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
@@ -647,10 +668,17 @@
     <div class="toolbar">
       <input type="text" id="search" placeholder="Search title, artist, album...">
       <select class="genre-select" id="genreFilter"><option value="">All genres</option></select>
+      <div class="lib-views" style="display:flex;gap:3px;margin-left:auto;">
+        <button class="toolbar-btn lib-view-btn active" data-view="tracks">Tracks</button>
+        <button class="toolbar-btn lib-view-btn" data-view="albums">Albums</button>
+        <button class="toolbar-btn lib-view-btn" data-view="artists">Artists</button>
+      </div>
       <button class="toolbar-btn primary" id="playAll">Shuffle All</button>
     </div>
     <div class="track-count" id="trackCount"></div>
     <div class="track-list" id="trackList"></div>
+    <div class="track-list" id="albumList" style="display:none;"></div>
+    <div class="track-list" id="artistList" style="display:none;"></div>
   </div>
 
   <!-- Playlists Tab -->
@@ -732,6 +760,18 @@
         <option value="circular">Circular</option>
         <option value="lyrics">Lyrics</option>
       </select>
+    </div>
+
+    <div class="settings-section">
+      <h4>Playback</h4>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <input type="checkbox" id="settingsCrossfade" style="width:16px;height:16px;accent-color:var(--accent);">
+        <span>Crossfade between tracks</span>
+      </label>
+      <div id="crossfadeDuration" style="margin-top:8px;display:none;">
+        <label>Duration: <span id="crossfadeVal">3</span>s</label>
+        <input type="range" id="settingsCrossfadeDur" min="1" max="8" value="3" style="width:100%;margin-top:4px;">
+      </div>
     </div>
 
     <div class="settings-section">
@@ -902,6 +942,7 @@ function appendTrackBatch(list) {
       '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
       (t.genre ? '<span class="track-genre" style="' + getGenreStyle(t.genre) + '">' + esc(t.genre) + '</span>' : '') +
       '<span class="track-duration">' + formatTime(t.duration) + '</span>' +
+      '<button class="fav-btn ' + (t.favorited ? 'liked' : '') + '" data-id="' + t.id + '" title="Favorite">&#9829;</button>' +
       '<button class="add-btn" data-id="' + t.id + '" title="Add to queue">+</button>' +
     '</div>';
   }
@@ -927,6 +968,17 @@ function appendTrackBatch(list) {
 
 // Event delegation for track clicks (no per-element listeners)
 document.getElementById('trackList').addEventListener('click', function(e) {
+  // Favorite toggle
+  var favBtn = e.target.closest('.fav-btn');
+  if (favBtn) {
+    e.stopPropagation();
+    var favId = parseInt(favBtn.dataset.id);
+    api('/favorites/toggle', 'POST', { trackId: favId }).then(function(r) {
+      favBtn.classList.toggle('liked', r.favorited);
+      var t = getTrack(favId); if (t) t.favorited = r.favorited;
+    });
+    return;
+  }
   var addBtn = e.target.closest('.add-btn');
   if (addBtn) {
     e.stopPropagation();
@@ -1141,6 +1193,82 @@ function renderGenreFilter() {
   sel.innerHTML = html;
 }
 document.getElementById('genreFilter').addEventListener('change', applyFilters);
+
+// ─── Library Views (Tracks / Albums / Artists) ───────────────────────────────
+var currentLibView = 'tracks';
+
+document.querySelectorAll('.lib-view-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    currentLibView = btn.dataset.view;
+    document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === currentLibView); });
+    document.getElementById('trackList').style.display = currentLibView === 'tracks' ? '' : 'none';
+    document.getElementById('albumList').style.display = currentLibView === 'albums' ? '' : 'none';
+    document.getElementById('artistList').style.display = currentLibView === 'artists' ? '' : 'none';
+    if (currentLibView === 'albums') renderAlbums();
+    if (currentLibView === 'artists') renderArtists();
+  });
+});
+
+function renderAlbums() {
+  var list = document.getElementById('albumList');
+  var albumMap = {};
+  allTracks.forEach(function(t) {
+    var key = t.album + '|||' + t.artist;
+    if (!albumMap[key]) albumMap[key] = { album: t.album, artist: t.artist, tracks: [], hasCover: t.hasCover, coverId: t.id };
+    albumMap[key].tracks.push(t.id);
+  });
+  var albums = Object.values(albumMap).sort(function(a, b) { return a.album.localeCompare(b.album); });
+  document.getElementById('trackCount').textContent = albums.length + ' album' + (albums.length !== 1 ? 's' : '');
+  list.innerHTML = albums.map(function(a) {
+    var coverHtml = a.hasCover
+      ? '<div class="group-icon" style="background:none;overflow:hidden;border-radius:6px;"><img src="/api/cover/' + a.coverId + '" style="width:100%;height:100%;object-fit:cover;"></div>'
+      : '<div class="group-icon" style="background:var(--surface);">' + esc(a.album.charAt(0)) + '</div>';
+    return '<div class="group-card" data-album="' + esc(a.album) + '" data-artist="' + esc(a.artist) + '">' +
+      coverHtml + '<div><div class="group-name">' + esc(a.album) + '</div><div class="group-count">' + esc(a.artist) + ' — ' + a.tracks.length + ' tracks</div></div></div>';
+  }).join('');
+  list.querySelectorAll('.group-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var album = card.dataset.album;
+      tracks = allTracks.filter(function(t) { return t.album === album; });
+      currentLibView = 'tracks';
+      document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
+      document.getElementById('trackList').style.display = '';
+      document.getElementById('albumList').style.display = 'none';
+      document.getElementById('artistList').style.display = 'none';
+      renderTracks();
+    });
+  });
+}
+
+function renderArtists() {
+  var list = document.getElementById('artistList');
+  var artistMap = {};
+  allTracks.forEach(function(t) {
+    if (!artistMap[t.artist]) artistMap[t.artist] = { artist: t.artist, count: 0 };
+    artistMap[t.artist].count++;
+  });
+  var artists = Object.values(artistMap).sort(function(a, b) { return b.count - a.count; });
+  document.getElementById('trackCount').textContent = artists.length + ' artist' + (artists.length !== 1 ? 's' : '');
+  var ARTIST_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6','#f59e0b','#e05555'];
+  list.innerHTML = artists.map(function(a, i) {
+    var color = ARTIST_COLORS[i % ARTIST_COLORS.length];
+    return '<div class="group-card" data-artist="' + esc(a.artist) + '">' +
+      '<div class="group-icon" style="background:' + color + ';">' + esc(a.artist.charAt(0).toUpperCase()) + '</div>' +
+      '<div><div class="group-name">' + esc(a.artist) + '</div><div class="group-count">' + a.count + ' tracks</div></div></div>';
+  }).join('');
+  list.querySelectorAll('.group-card').forEach(function(card) {
+    card.addEventListener('click', function() {
+      var artist = card.dataset.artist;
+      tracks = allTracks.filter(function(t) { return t.artist === artist; });
+      currentLibView = 'tracks';
+      document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
+      document.getElementById('trackList').style.display = '';
+      document.getElementById('albumList').style.display = 'none';
+      document.getElementById('artistList').style.display = 'none';
+      renderTracks();
+    });
+  });
+}
 
 // ─── Playlists ───────────────────────────────────────────────────────────────
 // Playlist color palette (high contrast, on-brand)
@@ -1383,7 +1511,40 @@ audio.addEventListener('timeupdate', function() {
   document.getElementById('currentTime').textContent = formatTime(audio.currentTime);
 });
 
+// Crossfade: check if near end of track
+var crossfadeTriggered = false;
+audio.addEventListener('timeupdate', function() {
+  if (!audio.duration || crossfadeTriggered) return;
+  var cfg = (window.resonance && window._appConfig) || {};
+  if (!cfg.crossfade) return;
+  var fadeDur = cfg.crossfadeDuration || 3;
+  var remaining = audio.duration - audio.currentTime;
+  if (remaining <= fadeDur && remaining > 0 && currentIndex < queue.length - 1) {
+    crossfadeTriggered = true;
+    // Fade out current
+    var fadeStep = 0.05;
+    var fadeInterval = setInterval(function() {
+      if (audio.volume > fadeStep) audio.volume -= fadeStep;
+      else { clearInterval(fadeInterval); }
+    }, fadeDur * 1000 * fadeStep);
+    // Start next track (will reset volume)
+    setTimeout(function() {
+      currentIndex++;
+      var savedVol = (window._appConfig && window._appConfig.volume != null) ? window._appConfig.volume : 1;
+      playCurrentTrack();
+      audio.volume = 0;
+      var fadeIn = setInterval(function() {
+        if (audio.volume < savedVol - fadeStep) audio.volume += fadeStep;
+        else { audio.volume = savedVol; clearInterval(fadeIn); }
+      }, fadeDur * 1000 * fadeStep * 0.5);
+      renderQueue();
+      crossfadeTriggered = false;
+    }, (fadeDur - 0.5) * 1000);
+  }
+});
+
 audio.addEventListener('ended', function() {
+  if (crossfadeTriggered) { crossfadeTriggered = false; return; } // Already handled by crossfade
   if (currentIndex < queue.length - 1) {
     currentIndex++;
     playCurrentTrack();
@@ -1660,6 +1821,31 @@ document.addEventListener('keydown', function(e) {
   });
 })();
 
+// Vertical resizer (hero height)
+(function() {
+  var vresizer = document.getElementById('npVResizer');
+  var npRow = document.querySelector('.np-row');
+  var dragging = false;
+  if (!vresizer || !npRow) return;
+  vresizer.addEventListener('mousedown', function(e) {
+    e.preventDefault(); dragging = true; vresizer.classList.add('active');
+    document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    var panel = npRow.parentElement;
+    var panelRect = panel.getBoundingClientRect();
+    var pct = ((e.clientY - panelRect.top) / panelRect.height) * 100;
+    pct = Math.max(15, Math.min(70, pct));
+    npRow.style.flex = 'none';
+    npRow.style.height = pct + '%';
+    if (viz) viz.resize();
+  });
+  document.addEventListener('mouseup', function() {
+    if (dragging) { dragging = false; vresizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+  });
+})();
+
 // Auto-init on first play
 audio.addEventListener('play', function() { if (!vizInitialized) initViz(); if (vizVisible && viz) viz.start(); }, { once: true });
 
@@ -1667,6 +1853,9 @@ audio.addEventListener('play', function() { if (!vizInitialized) initViz(); if (
 var settingsModal = document.getElementById('settingsModal');
 var settingsFolders = [];
 
+document.getElementById('shortcutsBtn').addEventListener('click', function() {
+  showToast('Space = Play/Pause | → = Next | ← = Prev | Esc = Exit expand');
+});
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsCancel').addEventListener('click', function() { settingsModal.classList.remove('open'); });
 settingsModal.addEventListener('click', function(e) { if (e.target === settingsModal) settingsModal.classList.remove('open'); });
@@ -1679,6 +1868,10 @@ async function openSettings() {
     document.getElementById('settingsVizEnabled').checked = vizVisible;
     document.getElementById('settingsHue').value = cfg.hue || 38;
     document.getElementById('settingsLanEnabled').checked = cfg.lanEnabled !== false;
+    document.getElementById('settingsCrossfade').checked = !!cfg.crossfade;
+    document.getElementById('settingsCrossfadeDur').value = cfg.crossfadeDuration || 3;
+    document.getElementById('crossfadeVal').textContent = cfg.crossfadeDuration || 3;
+    document.getElementById('crossfadeDuration').style.display = cfg.crossfade ? 'block' : 'none';
     var ver = await window.resonance.getVersion();
     document.getElementById('aboutText').textContent = 'Resonance v' + ver + ' — by n3lio';
 
@@ -1734,6 +1927,14 @@ document.getElementById('addFolderBtn').addEventListener('click', async function
   }
 });
 
+// Crossfade settings UI
+document.getElementById('settingsCrossfade').addEventListener('change', function() {
+  document.getElementById('crossfadeDuration').style.display = this.checked ? 'block' : 'none';
+});
+document.getElementById('settingsCrossfadeDur').addEventListener('input', function(e) {
+  document.getElementById('crossfadeVal').textContent = e.target.value;
+});
+
 // Live preview hue
 document.getElementById('settingsHue').addEventListener('input', function(e) {
   document.documentElement.style.setProperty('--hue', e.target.value);
@@ -1765,6 +1966,8 @@ document.getElementById('settingsSave').addEventListener('click', async function
   vizVisible = document.getElementById('settingsVizEnabled').checked;
   var hue = parseInt(document.getElementById('settingsHue').value);
   var lanEnabled = document.getElementById('settingsLanEnabled').checked;
+  var crossfade = document.getElementById('settingsCrossfade').checked;
+  var crossfadeDuration = parseInt(document.getElementById('settingsCrossfadeDur').value) || 3;
 
   if (viz) viz.setMode(vizMode);
   document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){ i.classList.toggle('active', i.dataset.viz === vizMode); });
@@ -1779,7 +1982,7 @@ document.getElementById('settingsSave').addEventListener('click', async function
   settingsModal.classList.remove('open');
 
   if (window.resonance) {
-    await window.resonance.setConfig({ musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled });
+    await window.resonance.setConfig({ musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration });
   }
   // Trigger rescan
   api('/rescan', 'POST').then(function() {
@@ -1792,8 +1995,9 @@ document.getElementById('settingsSave').addEventListener('click', async function
 
 // ─── Electron Integration ───────────────────────────────────────────────────
 if (isDesktop) {
-  // Load persisted settings (viz + volume + theme)
+  // Load persisted settings (viz + volume + theme + crossfade)
   window.resonance.getConfig().then(function(cfg) {
+    window._appConfig = cfg;
     if (cfg.vizEnabled === false) { vizVisible = false; document.getElementById('vizContainer').classList.remove('active'); }
     if (cfg.vizMode) { vizMode = cfg.vizMode; if (viz) viz.setMode(vizMode); }
     if (cfg.volume != null) { audio.volume = cfg.volume; document.getElementById('volumeSlider').value = cfg.volume; }
