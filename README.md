@@ -8,7 +8,7 @@ Play your collection, control it from your phone.
 
 ## Download
 
-[**Latest Release**](https://github.com/n3lio/Resonance/releases/latest) — grab `Ghetto-Blaster-Setup-X.X.X.exe`, install, done.
+[**Latest Release**](https://github.com/n3lio/Ghetto-Blaster/releases/latest) — grab `Ghetto-Blaster-Setup-X.X.X.exe`, install, done.
 
 > **Note:** Windows may show a SmartScreen warning ("Unknown publisher"). This is normal for indie software — click **More info** → **Run anyway**.
 

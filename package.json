@@ -1,6 +1,6 @@
 {
   "name": "ghetto-blaster",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Personal music player & LAN streamer for Windows, by n3lio",
   "main": "main.js",
   "scripts": {
@@ -56,7 +56,7 @@
     "publish": {
       "provider": "github",
       "owner": "n3lio",
-      "repo": "Resonance"
+      "repo": "Ghetto-Blaster"
     }
   }
 }

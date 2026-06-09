@@ -2532,14 +2532,14 @@ function remoteAddToQueue(trackId) {
   var ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host);
   ws.onopen = function() {
     // Identify this device with a persistent name
-    var deviceName = localStorage.getItem('resonance-device-name');
+    var deviceName = localStorage.getItem('ghettoblaster-device');
     if (!deviceName) {
       var ua = navigator.userAgent;
       if (/iPhone/.test(ua)) deviceName = 'iPhone';
       else if (/Android/.test(ua)) deviceName = 'Android';
       else if (/iPad/.test(ua)) deviceName = 'iPad';
       else deviceName = 'Browser';
-      localStorage.setItem('resonance-device-name', deviceName);
+      localStorage.setItem('ghettoblaster-device', deviceName);
     }
     ws.send(JSON.stringify({ type: 'set-name', name: deviceName }));
   };
