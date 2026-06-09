@@ -307,8 +307,17 @@
     .np-row {
       display: flex;
       flex-shrink: 0;
+      height: 38%;
+      min-height: 120px;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+      transition: height 0.2s ease, min-height 0.2s ease;
+    }
+    .np-row.collapsed {
+      height: 0 !important;
+      min-height: 0 !important;
+      overflow: hidden;
+      border-bottom: none;
     }
     .np-hero {
       display: flex;
@@ -390,11 +399,13 @@
     .np-time { font-size: 0.68rem; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 30px; }
 
     @media (max-width: 768px) {
-      .np-row { flex-direction: column; }
+      .np-row { flex-direction: column; height: auto !important; min-height: auto !important; }
       .np-viz-side { display: none; }
       .np-cover { width: 100px; height: 100px; }
       .np-hero { padding: 14px 16px 10px; }
       .np-title { max-width: 200px; }
+      .np-vresizer { display: none; }
+      #toggleHero { display: none; }
     }
 
     /* ─── Queue Panel ─── */
@@ -665,8 +676,8 @@
           <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
         </button>
         <div class="viz-menu" id="vizMenu">
-          <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
-          <div class="viz-menu-item" data-viz="drift">Drift</div>
+          <div class="viz-menu-item" data-viz="nebula">Nebula</div>
+          <div class="viz-menu-item active" data-viz="drift">Drift</div>
           <div class="viz-menu-item" data-viz="wave">Wave</div>
           <div class="viz-menu-item" data-viz="starfield">Starfield</div>
           <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
@@ -687,6 +698,7 @@
     <div class="queue-header">
       <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
       <div class="queue-actions">
+        <button id="toggleHero" title="Show/Hide player">&#9650;</button>
         <button id="shuffleQueue">Shuffle</button>
         <button id="clearQueue">Clear</button>
       </div>
@@ -1906,7 +1918,7 @@ document.addEventListener('keydown', function(e) {
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 var vizContainer = document.getElementById('vizContainer');
 var vizCanvas = document.getElementById('vizCanvas');
-var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'nebula';
+var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'drift';
 
 function initViz() {
   if (vizInitialized) return;
@@ -1982,7 +1994,7 @@ document.addEventListener('keydown', function(e) {
   });
 })();
 
-// Vertical resizer (hero height)
+// Vertical resizer (hero height) — constrained: min 15%, max 55%
 (function() {
   var vresizer = document.getElementById('npVResizer');
   var npRow = document.querySelector('.np-row');
@@ -1994,16 +2006,31 @@ document.addEventListener('keydown', function(e) {
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
+    if (npRow.classList.contains('collapsed')) return;
     var panel = npRow.parentElement;
     var panelRect = panel.getBoundingClientRect();
     var pct = ((e.clientY - panelRect.top) / panelRect.height) * 100;
-    pct = Math.max(15, Math.min(70, pct));
-    npRow.style.flex = 'none';
+    pct = Math.max(15, Math.min(55, pct));
     npRow.style.height = pct + '%';
     if (viz) viz.resize();
   });
   document.addEventListener('mouseup', function() {
     if (dragging) { dragging = false; vresizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+  });
+})();
+
+// Toggle hero (show/hide the big player)
+(function() {
+  var btn = document.getElementById('toggleHero');
+  var npRow = document.querySelector('.np-row');
+  var vresizer = document.getElementById('npVResizer');
+  if (!btn || !npRow) return;
+  btn.addEventListener('click', function() {
+    var collapsed = npRow.classList.toggle('collapsed');
+    btn.innerHTML = collapsed ? '&#9660;' : '&#9650;';
+    btn.title = collapsed ? 'Show player' : 'Hide player';
+    if (vresizer) vresizer.style.display = collapsed ? 'none' : '';
+    if (!collapsed && viz) viz.resize();
   });
 })();
 
@@ -2282,7 +2309,7 @@ if (isDesktop) {
   // Updates
   window.resonance.onUpdateAvailable(function(d) {
     var badge = document.getElementById('updateBadge');
-    badge.textContent = 'v' + d.version + ' downloading...';
+    badge.textContent = 'v' + d.version + ' available';
     badge.style.display = 'inline';
     badge.onclick = function() { window.open('https://github.com/n3lio/Ghetto-Blaster/releases/latest', '_blank'); };
   });
