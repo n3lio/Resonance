@@ -866,7 +866,13 @@
 
     <div class="settings-section">
       <h4>About</h4>
-      <p style="font-size:0.78rem;color:var(--text-muted);" id="aboutText">Ghetto Blaster</p>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;">
+        <img src="/illustration.png" alt="Ghetto Blaster" style="width:64px;height:64px;border-radius:12px;object-fit:cover;">
+        <div>
+          <p style="font-size:0.88rem;font-weight:600;color:var(--text);margin:0;">Ghetto Blaster</p>
+          <p style="font-size:0.72rem;color:var(--text-dim);margin:4px 0 0;" id="aboutText">Personal music player & LAN streamer</p>
+        </div>
+      </div>
     </div>
 
     </div><!-- end modal-body -->
@@ -1413,10 +1419,26 @@ function renderArtists() {
 // Playlist color palette (high contrast, on-brand)
 var PL_COLORS = ['#e8a435','#c47a7a','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#e05555','#8b5cf6','#f59e0b'];
 
-function getPlaylistColor(name, index) {
-  // Simple hash from name for deterministic color
+function getPlaylistColor(pl, index) {
+  // Smart playlists: match genre color from GENRE_COLORS
+  if (pl.genreMatch && pl.genreMatch.length) {
+    var kw = pl.genreMatch[0].toLowerCase();
+    for (var i = 0; i < GENRE_COLORS.length; i++) {
+      if (GENRE_COLORS[i].match.some(function(m){ return kw.includes(m) || m.includes(kw); })) {
+        return GENRE_COLORS[i].color;
+      }
+    }
+  }
+  // Also try matching from playlist name
+  var nl = (pl.name || '').toLowerCase();
+  for (var j = 0; j < GENRE_COLORS.length; j++) {
+    if (GENRE_COLORS[j].match.some(function(m){ return nl.includes(m); })) {
+      return GENRE_COLORS[j].color;
+    }
+  }
+  // Fallback: hash-based color
   var hash = 0;
-  for (var i = 0; i < (name||'').length; i++) hash = ((hash << 5) - hash) + name.charCodeAt(i);
+  for (var k = 0; k < (pl.name||'').length; k++) hash = ((hash << 5) - hash) + pl.name.charCodeAt(k);
   return PL_COLORS[Math.abs(hash + index) % PL_COLORS.length];
 }
 
@@ -1425,7 +1447,7 @@ function renderPlaylists() {
   document.getElementById('playlistCount').textContent = playlists.length + ' playlist' + (playlists.length !== 1 ? 's' : '');
   if (!playlists.length) { view.innerHTML = '<p style="color:var(--text-muted);font-size:0.83rem;">No playlists yet.</p>'; return; }
   view.innerHTML = playlists.map(function(p, i) {
-    var color = getPlaylistColor(p.name, i);
+    var color = getPlaylistColor(p, i);
     var icon = '<div style="width:40px;height:40px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem;font-weight:700;color:#0a0a0b;">' + esc(p.name.charAt(0).toUpperCase()) + '</div>';
     var smartTag = p.type === 'smart' ? '<span style="font-size:0.6rem;color:var(--text-dim);background:var(--surface);padding:2px 5px;border-radius:8px;margin-left:6px;">Smart</span>' : '';
     return '<div class="playlist-card" draggable="true" data-id="' + p.id + '" data-idx="' + i + '">' + icon +
@@ -2037,7 +2059,7 @@ async function openSettings() {
     document.getElementById('crossfadeVal').textContent = cfg.crossfadeDuration || 3;
     document.getElementById('crossfadeDuration').style.display = cfg.crossfade ? 'block' : 'none';
     var ver = await window.resonance.getVersion();
-    document.getElementById('aboutText').textContent = 'Ghetto Blaster v' + ver + ' — by n3lio';
+    document.getElementById('aboutText').textContent = 'v' + ver + ' — by n3lio';
 
     // Generate QR code for mobile access (via server API)
     var qrContainer = document.getElementById('qrCode');
