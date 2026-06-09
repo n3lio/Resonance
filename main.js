@@ -168,11 +168,15 @@ ipcMain.handle('config:pick-folder', async () => {
 
 // ─── Auto Updater ───────────────────────────────────────────────────────────
 function setupAutoUpdater() {
-  autoUpdater.autoDownload = true;
+  autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on('update-available', (info) => {
     notifyRenderer('app:update-available', { version: info.version });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    notifyRenderer('app:update-progress', { percent: Math.round(progress.percent) });
   });
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -181,15 +185,21 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (err) => {
     console.error('Auto-updater error:', err.message);
+    notifyRenderer('app:update-error', { message: err.message });
   });
 
   // Delay update check to ensure renderer is ready to receive events
   setTimeout(() => {
-    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    autoUpdater.checkForUpdates().catch((err) => {
       console.log('Update check skipped:', err.message);
     });
   }, 5000);
 }
+
+// IPC: user confirms they want to download the update
+ipcMain.handle('app:download-update', () => {
+  autoUpdater.downloadUpdate();
+});
 
 // ─── Splash Screen ──────────────────────────────────────────────────────────
 let splashWindow = null;

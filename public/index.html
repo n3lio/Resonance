@@ -2302,12 +2302,20 @@ if (isDesktop) {
   document.getElementById('refreshUsersBtn').addEventListener('click', fetchUsers);
   setInterval(function() { if (document.getElementById('panel-devices').classList.contains('active')) fetchUsers(); }, 10000);
 
-  // Updates — seamless: auto-download in background, click to install when ready
+  // Updates — user-confirmed: show available → click to download → progress → install
   window.resonance.onUpdateAvailable(function(d) {
     var badge = document.getElementById('updateBadge');
-    badge.textContent = 'v' + d.version + ' downloading…';
+    badge.textContent = 'v' + d.version + ' available';
     badge.style.display = 'inline';
-    badge.onclick = null;
+    badge.onclick = function() {
+      badge.textContent = 'downloading…';
+      badge.onclick = null;
+      window.resonance.downloadUpdate();
+    };
+  });
+  window.resonance.onUpdateProgress(function(d) {
+    var badge = document.getElementById('updateBadge');
+    badge.textContent = 'downloading… ' + d.percent + '%';
   });
   window.resonance.onUpdateDownloaded(function(d) {
     var badge = document.getElementById('updateBadge');
@@ -2317,6 +2325,13 @@ if (isDesktop) {
     badge.style.borderColor = 'var(--accent)';
     badge.style.background = 'var(--accent-subtle)';
     badge.onclick = function() { window.resonance.restartToUpdate(); };
+  });
+  window.resonance.onUpdateError(function() {
+    var badge = document.getElementById('updateBadge');
+    badge.textContent = 'update failed';
+    badge.style.color = 'var(--red)';
+    badge.style.borderColor = 'var(--red)';
+    setTimeout(function() { badge.style.display = 'none'; }, 5000);
   });
 }
 
