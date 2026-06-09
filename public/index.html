@@ -229,10 +229,10 @@
     .stat-count { font-size: 0.72rem; color: var(--text-dim); min-width: 30px; text-align: right; }
 
     /* EQ sliders */
-    .eq-band { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .eq-band { display: flex; flex-direction: column; align-items: center; flex: 1; height: 100%; }
     .eq-band input[type="range"] {
       writing-mode: vertical-lr; direction: rtl;
-      width: 6px; height: 140px; -webkit-appearance: none; appearance: none;
+      width: 6px; flex: 1; min-height: 80px; -webkit-appearance: none; appearance: none;
       background: var(--border); border-radius: 3px; outline: none; cursor: pointer;
     }
     .eq-band input[type="range"]::-webkit-slider-thumb {
@@ -479,17 +479,19 @@
     .modal-overlay.open { display: flex; }
     .modal {
       background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-      padding: 24px; width: 90%; max-width: 480px; max-height: 80vh; overflow-y: auto;
+      padding: 0; width: 90%; max-width: 480px; max-height: 80vh;
       box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+      display: flex; flex-direction: column;
     }
-    .modal h3 { font-size: 1rem; margin-bottom: 16px; font-weight: 600; }
+    .modal h3 { font-size: 1rem; font-weight: 600; padding: 20px 24px 12px; margin: 0; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+    .modal-body { padding: 12px 24px 20px; overflow-y: auto; flex: 1; min-height: 0; }
     .modal label { font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 5px; margin-top: 12px; }
     .modal input, .modal select {
       width: 100%; padding: 9px 12px; border-radius: var(--radius); border: 1px solid var(--border);
       background: var(--bg); color: var(--text); font-size: 0.83rem; font-family: var(--font); outline: none;
     }
     .modal input:focus { border-color: var(--accent); }
-    .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+    .modal-actions { display: flex; gap: 10px; padding: 14px 24px; justify-content: flex-end; flex-shrink: 0; border-top: 1px solid var(--border); }
     .modal-actions button {
       padding: 9px 18px; border-radius: 20px; border: 1px solid var(--border);
       background: transparent; color: var(--text); cursor: pointer;
@@ -538,7 +540,8 @@
       background: transparent; color: var(--text-muted); cursor: pointer;
       font-size: 0.7rem; font-family: var(--font); font-weight: 500; transition: all 0.2s;
     }
-    .mode-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .mode-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .mode-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: auto; }
     .mode-btn.active { background: linear-gradient(135deg,var(--accent),hsl(var(--hue), 90%, 78%)); color: #0a0a0b; border-color: var(--accent); font-weight: 600; }
 
     /* Remote mode indicator on player bar */
@@ -574,11 +577,11 @@
   <div class="header-right">
     <div class="mode-toggle" id="modeToggle" style="display:none;">
       <button class="mode-btn active" data-mode="remote">Remote</button>
-      <button class="mode-btn" data-mode="stream">Stream</button>
+      <button class="mode-btn" data-mode="stream" disabled title="Coming soon" style="opacity:0.4;cursor:not-allowed;">Stream</button>
     </div>
-    <span class="server-pill on" id="serverPill" style="display:none">
+    <span class="server-pill on" id="serverPill" style="display:none;cursor:pointer;" title="Click for server details">
       <span class="dot"></span>
-      <span class="server-label">LAN Server</span>
+      <span class="server-label">Online</span>
     </span>
     <button class="settings-btn" id="shortcutsBtn" title="Keyboard shortcuts" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
     <button class="settings-btn" id="settingsBtn" title="Settings">
@@ -620,8 +623,8 @@
             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
           </button>
           <div class="viz-menu" id="vizMenu">
-            <div class="viz-menu-item" data-viz="nebula">Nebula</div>
             <div class="viz-menu-item active" data-viz="drift">Drift</div>
+            <div class="viz-menu-item" data-viz="nebula">Nebula</div>
             <div class="viz-menu-item" data-viz="wave">Wave</div>
             <div class="viz-menu-item" data-viz="starfield">Starfield</div>
             <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
@@ -691,15 +694,14 @@
   <!-- Users Tab (desktop only) -->
   <!-- EQ Tab -->
   <div class="panel" id="panel-eq">
-    <div style="padding:20px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
+    <div style="padding:20px;display:flex;flex-direction:column;height:100%;box-sizing:border-box;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;flex-shrink:0;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Equalizer</h2>
       </div>
-      <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;height:180px;gap:6px;padding:0 10px;"></div>
-      <div id="eqLabels" style="display:flex;justify-content:space-between;padding:6px 10px 0;font-size:0.62rem;color:var(--text-dim);"></div>
-      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
-        <span style="font-size:0.75rem;color:var(--text-dim);">Preset:</span>
-        <select id="eqPreset" class="genre-select" style="max-width:140px;">
+      <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;flex:1;min-height:120px;gap:6px;padding:0 10px;"></div>
+      <div id="eqLabels" style="display:flex;justify-content:space-between;padding:6px 10px 0;font-size:0.62rem;color:var(--text-dim);flex-shrink:0;"></div>
+      <div style="margin-top:16px;text-align:center;flex-shrink:0;">
+        <select id="eqPreset" class="genre-select" style="max-width:160px;">
           <option value="flat">Flat</option>
           <option value="bass">Bass Boost</option>
           <option value="treble">Treble Boost</option>
@@ -717,15 +719,19 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Audio Output</h2>
       </div>
-      <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);margin-bottom:10px;">Local Devices</h3>
-      <div id="outputList"></div>
-      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-          <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);">Bluetooth</h3>
-          <button class="toolbar-btn" id="btScanBtn" style="padding:5px 10px;font-size:0.72rem;">Scan</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div>
+          <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);margin-bottom:10px;">Local Devices</h3>
+          <div id="outputList"></div>
         </div>
-        <p style="font-size:0.72rem;color:var(--text-dim);margin-bottom:10px;">Pair a Bluetooth speaker from Windows Settings, then it will appear in Local Devices above.</p>
-        <div id="btDevicesList"></div>
+        <div>
+          <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);margin-bottom:10px;">Bluetooth</h3>
+          <p style="font-size:0.72rem;color:var(--text-dim);margin-bottom:12px;">Pair a Bluetooth speaker from Windows Settings, then it will appear in Local Devices.</p>
+          <div id="btDevicesList"></div>
+          <div style="text-align:center;margin-top:14px;">
+            <button class="toolbar-btn" id="btScanBtn" style="padding:6px 16px;font-size:0.72rem;">Scan for devices</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -787,6 +793,7 @@
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
     <h3>Settings</h3>
+    <div class="modal-body">
 
     <div class="settings-section">
       <h4>Music Folders</h4>
@@ -862,6 +869,7 @@
       <p style="font-size:0.78rem;color:var(--text-muted);" id="aboutText">Ghetto Blaster</p>
     </div>
 
+    </div><!-- end modal-body -->
     <div class="modal-actions">
       <button id="settingsCancel">Cancel</button>
       <button class="primary" id="settingsSave">Save & Rescan</button>
@@ -873,10 +881,12 @@
 <div class="modal-overlay" id="playlistModal">
   <div class="modal">
     <h3>New Playlist</h3>
-    <label>Name</label>
-    <input type="text" id="plName" placeholder="My playlist...">
-    <label style="margin-top:14px">From keywords (title, artist, album)</label>
-    <input type="text" id="plKeywords" placeholder="chill, jazz, lofi...">
+    <div class="modal-body">
+      <label>Name</label>
+      <input type="text" id="plName" placeholder="My playlist...">
+      <label style="margin-top:14px">From keywords (title, artist, album)</label>
+      <input type="text" id="plKeywords" placeholder="chill, jazz, lofi...">
+    </div>
     <div class="modal-actions">
       <button id="plCancel">Cancel</button>
       <button class="primary" id="plCreate">Create</button>
@@ -887,11 +897,13 @@
 <div class="modal-overlay" id="editPlModal">
   <div class="modal">
     <h3>Edit Playlist</h3>
-    <label>Name</label>
-    <input type="text" id="editPlName" placeholder="Playlist name...">
-    <div id="editPlGenreRow" style="margin-top:14px;">
-      <label>Genre keywords (comma separated)</label>
-      <input type="text" id="editPlGenres" placeholder="hip-hop, rap, trap...">
+    <div class="modal-body">
+      <label>Name</label>
+      <input type="text" id="editPlName" placeholder="Playlist name...">
+      <div id="editPlGenreRow" style="margin-top:14px;">
+        <label>Genre keywords (comma separated)</label>
+        <input type="text" id="editPlGenres" placeholder="hip-hop, rap, trap...">
+      </div>
     </div>
     <div class="modal-actions">
       <button id="editPlCancel">Cancel</button>
@@ -948,6 +960,17 @@ function getGenreStyle(genre) {
   return 'color:var(--purple);background:var(--purple-subtle);';
 }
 
+function getGenreBarColor(genre) {
+  if (!genre) return 'var(--accent)';
+  var gl = genre.toLowerCase();
+  for (var i = 0; i < GENRE_COLORS.length; i++) {
+    if (GENRE_COLORS[i].match.some(function(m){ return gl.includes(m); })) {
+      return GENRE_COLORS[i].color;
+    }
+  }
+  return 'var(--accent)';
+}
+
 var PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
 
 // Global: replace broken images with placeholder
@@ -996,6 +1019,7 @@ document.querySelectorAll('.tab').forEach(function(tab) {
     tab.classList.add('active');
     document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
     if (tab.dataset.tab === 'playlists') fetchPlaylists();
+    if (tab.dataset.tab === 'nowplaying') scrollToCurrentInQueue();
   });
 });
 
@@ -1181,10 +1205,16 @@ function renderQueue() {
     return;
   }
 
-  // Lazy render queue
+  // Lazy render queue — ensure current track is always rendered
   queueRenderedCount = 0;
   list.innerHTML = '';
   appendQueueBatch(list);
+  // Keep rendering batches until current track is visible
+  while (currentIndex >= queueRenderedCount && queueRenderedCount < queue.length) {
+    appendQueueBatch(list);
+  }
+  // Auto-scroll to current track
+  scrollToCurrentInQueue();
 }
 
 function appendQueueBatch(list) {
@@ -2158,12 +2188,14 @@ if (isDesktop) {
   document.getElementById('tbMin').addEventListener('click', function() { window.resonance.minimize(); });
   document.getElementById('tbMax').addEventListener('click', function() { window.resonance.maximize(); });
 
-  // Server pill
-  // Show server status (always on)
+  // Server pill — shows "Online", click for details
   var pill = document.getElementById('serverPill');
   pill.style.display = 'flex';
-  window.resonance.getServerStatus().then(function(s) {
-    pill.querySelector('.server-label').textContent = s.ip + ':' + (s.port || 3000);
+  var serverInfo = { ip: '...', port: 3000, version: '' };
+  window.resonance.getServerStatus().then(function(s) { serverInfo.ip = s.ip; serverInfo.port = s.port || 3000; });
+  window.resonance.getVersion().then(function(v) { serverInfo.version = v; });
+  pill.addEventListener('click', function() {
+    showToast('LAN: http://' + serverInfo.ip + ':' + serverInfo.port + ' — v' + serverInfo.version);
   });
 
   // Post audio output devices to server (for mobile Output tab)
@@ -2238,12 +2270,12 @@ if (isDesktop) {
   document.getElementById('refreshUsersBtn').addEventListener('click', fetchUsers);
   setInterval(function() { if (document.getElementById('panel-users').classList.contains('active')) fetchUsers(); }, 10000);
 
-  // Updates
+  // Updates — seamless: auto-download in background, click to install when ready
   window.resonance.onUpdateAvailable(function(d) {
     var badge = document.getElementById('updateBadge');
-    badge.textContent = 'v' + d.version + ' available';
+    badge.textContent = 'v' + d.version + ' downloading…';
     badge.style.display = 'inline';
-    badge.onclick = function() { window.open('https://github.com/n3lio/Ghetto-Blaster/releases/latest', '_blank'); };
+    badge.onclick = null;
   });
   window.resonance.onUpdateDownloaded(function(d) {
     var badge = document.getElementById('updateBadge');
@@ -2438,7 +2470,8 @@ function fetchStats() {
 
     var maxGenre = s.topGenres.length ? s.topGenres[0].count : 1;
     document.getElementById('statsGenres').innerHTML = s.topGenres.map(function(g, i) {
-      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%"></div></div><span class="stat-count">' + g.count + '</span></div>';
+      var barColor = getGenreBarColor(g.name);
+      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%;background:' + barColor + '"></div></div><span class="stat-count">' + g.count + '</span></div>';
     }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
   }).catch(function(){});
 }
@@ -2666,6 +2699,7 @@ if (!isDesktop) {
 
   document.querySelectorAll('.mode-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
+      if (btn.disabled) return;
       var mode = btn.dataset.mode;
       if (mode === 'stream') userPickedStream = true;
       setMobileMode(mode);

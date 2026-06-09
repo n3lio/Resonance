@@ -126,22 +126,26 @@ class Visualizer {
     const hue=this.getHue();
     const bass=this.boost(this.getAvg(0,6));
     const mid=this.boost(this.getAvg(8,20));
+    const high=this.boost(this.getAvg(24,50));
     const t=this.frame*0.01;
 
-    ctx.fillStyle=`rgba(10,10,11,${0.05+(1-bass)*0.04})`;
+    ctx.fillStyle=`rgba(10,10,11,${0.04+(1-bass)*0.04})`;
     ctx.fillRect(0,0,w,h);
 
-    // Nebula background
+    // Rich nebula background (same intensity as Nebula mode)
     const layers=[
-      {cx:0.35+Math.sin(t*0.8)*0.12,cy:0.45+Math.cos(t*0.6)*0.1,r:0.3+bass*0.4,h:hue,alpha:0.03+bass*0.1},
-      {cx:0.65+Math.cos(t*0.7)*0.1,cy:0.55+Math.sin(t*0.9)*0.1,r:0.25+mid*0.35,h:hue+180,alpha:0.025+mid*0.08},
+      {cx:0.3+Math.sin(t*0.7)*0.15,cy:0.4+Math.cos(t*0.5)*0.15,r:0.35+bass*0.5,h:hue,alpha:0.04+bass*0.16},
+      {cx:0.7+Math.cos(t*0.6)*0.12,cy:0.55+Math.sin(t*0.8)*0.12,r:0.3+mid*0.4,h:hue+140,alpha:0.03+mid*0.12},
+      {cx:0.5+Math.sin(t*0.9)*0.14,cy:0.35+Math.cos(t*0.4)*0.12,r:0.25+high*0.35,h:hue+260,alpha:0.025+high*0.1},
     ];
     for(const l of layers){
       const g=ctx.createRadialGradient(l.cx*w,l.cy*h,0,l.cx*w,l.cy*h,l.r*w);
-      g.addColorStop(0,`hsla(${l.h},85%,55%,${l.alpha})`);
+      g.addColorStop(0,`hsla(${l.h},90%,60%,${l.alpha})`);
+      g.addColorStop(0.4,`hsla(${l.h+10},80%,50%,${l.alpha*0.55})`);
       g.addColorStop(1,'transparent');
       ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
     }
+    if(bass>0.6){ctx.fillStyle=`hsla(${hue},80%,60%,${(bass-0.6)*0.2})`;ctx.fillRect(0,0,w,h);}
 
     // Wave overlay
     if(dataArray){
