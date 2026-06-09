@@ -216,6 +216,18 @@
     }
     .toolbar-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
     .lib-view-btn.active { background: var(--surface-active); color: var(--text); border-color: var(--border-light); }
+    /* Stats cards */
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+    .stat-card .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--accent); }
+    .stat-card .stat-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; }
+    .stat-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-rank { width: 20px; font-size: 0.72rem; color: var(--text-dim); text-align: right; }
+    .stat-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; border-radius: 3px; background: var(--accent); }
+    .stat-name { font-size: 0.8rem; min-width: 100px; }
+    .stat-count { font-size: 0.72rem; color: var(--text-dim); min-width: 30px; text-align: right; }
+
     .group-card { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.15s; }
     .group-card:hover { background: var(--accent-subtle); }
     .group-icon { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: #0a0a0b; flex-shrink: 0; }
@@ -598,6 +610,7 @@
   <div class="tab" data-tab="library">Library</div>
   <div class="tab" data-tab="playlists">Playlists</div>
   <div class="tab" data-tab="users" id="usersTab" style="display:none;">Users</div>
+  <div class="tab" data-tab="stats" id="statsTab" style="display:none;">Stats</div>
 </div>
 
 <!-- Main Area -->
@@ -668,6 +681,14 @@
     <div class="toolbar">
       <input type="text" id="search" placeholder="Search title, artist, album...">
       <select class="genre-select" id="genreFilter"><option value="">All genres</option></select>
+      <select class="genre-select" id="sortSelect" style="max-width:120px;">
+        <option value="title">Title A-Z</option>
+        <option value="title-desc">Title Z-A</option>
+        <option value="artist">Artist A-Z</option>
+        <option value="album">Album A-Z</option>
+        <option value="duration">Shortest</option>
+        <option value="duration-desc">Longest</option>
+      </select>
       <div class="lib-views" style="display:flex;gap:3px;margin-left:auto;">
         <button class="toolbar-btn lib-view-btn active" data-view="tracks">Tracks</button>
         <button class="toolbar-btn lib-view-btn" data-view="albums">Albums</button>
@@ -698,6 +719,18 @@
         <button class="toolbar-btn" id="refreshUsersBtn" style="padding:5px 10px;font-size:0.72rem;">Refresh</button>
       </div>
       <div id="usersList"></div>
+    </div>
+  </div>
+
+  <!-- Stats Tab -->
+  <div class="panel" id="panel-stats">
+    <div style="padding:20px;overflow-y:auto;" id="statsContent">
+      <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:16px;">Listening Stats</h2>
+      <div id="statsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div><h3 style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Top Artists (30 days)</h3><div id="statsArtists"></div></div>
+        <div><h3 style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Top Genres (30 days)</h3><div id="statsGenres"></div></div>
+      </div>
     </div>
   </div>
 </div>
@@ -1725,9 +1758,25 @@ function applyFilters() {
       filtered = filtered.filter(function(t) { return t.genre && t.genre.toLowerCase().includes(gl); });
     }
   }
+  // Sort
+  var sort = document.getElementById('sortSelect').value;
+  filtered.sort(function(a, b) {
+    switch(sort) {
+      case 'title': return (a.title||'').localeCompare(b.title||'');
+      case 'title-desc': return (b.title||'').localeCompare(a.title||'');
+      case 'artist': return (a.artist||'').localeCompare(b.artist||'');
+      case 'album': return (a.album||'').localeCompare(b.album||'');
+      case 'duration': return (a.duration||0) - (b.duration||0);
+      case 'duration-desc': return (b.duration||0) - (a.duration||0);
+      default: return 0;
+    }
+  });
+
   tracks = filtered;
   renderTracks();
 }
+
+document.getElementById('sortSelect').addEventListener('change', applyFilters);
 
 document.getElementById('search').addEventListener('input', function() {
   clearTimeout(searchTimeout);
@@ -2068,9 +2117,11 @@ if (isDesktop) {
   // Listen for remote commands from mobile
   // (via WS — handled below in WS section)
 
-  // Show Users tab (desktop only)
+  // Show Users + Stats tabs (desktop only)
   document.getElementById('usersTab').style.display = '';
+  document.getElementById('statsTab').style.display = '';
   document.querySelector('[data-tab="users"]').addEventListener('click', fetchUsers);
+  document.querySelector('[data-tab="stats"]').addEventListener('click', fetchStats);
   document.getElementById('refreshUsersBtn').addEventListener('click', fetchUsers);
   setInterval(function() { if (document.getElementById('panel-users').classList.contains('active')) fetchUsers(); }, 10000);
 
@@ -2107,6 +2158,28 @@ function fetchUsers() {
         '<div><div style="font-size:0.85rem;font-weight:500;">' + u.name + '</div><div style="font-size:0.7rem;color:var(--text-dim);">Connected ' + new Date(u.connectedAt).toLocaleTimeString() + '</div></div>' +
       '</div>';
     }).join('');
+  }).catch(function(){});
+}
+
+function fetchStats() {
+  fetch('/api/stats').then(function(r){ return r.json(); }).then(function(s) {
+    var hours = Math.floor(s.month.minutes / 60);
+    var cards = document.getElementById('statsCards');
+    cards.innerHTML =
+      '<div class="stat-card"><div class="stat-value">' + s.week.plays + '</div><div class="stat-label">Plays this week</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + hours + 'h</div><div class="stat-label">Listened (30d)</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + s.totalTracks + '</div><div class="stat-label">Total tracks</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + s.favorites + '</div><div class="stat-label">Favorites</div></div>';
+
+    var maxArtist = s.topArtists.length ? s.topArtists[0].count : 1;
+    document.getElementById('statsArtists').innerHTML = s.topArtists.map(function(a, i) {
+      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(a.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (a.count/maxArtist*100) + '%"></div></div><span class="stat-count">' + a.count + '</span></div>';
+    }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
+
+    var maxGenre = s.topGenres.length ? s.topGenres[0].count : 1;
+    document.getElementById('statsGenres').innerHTML = s.topGenres.map(function(g, i) {
+      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%"></div></div><span class="stat-count">' + g.count + '</span></div>';
+    }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
   }).catch(function(){});
 }
 
