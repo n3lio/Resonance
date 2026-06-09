@@ -536,6 +536,37 @@
     .settings-section { margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
     .settings-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
     .settings-section h4 { font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+    kbd { display:inline-block;padding:2px 7px;border-radius:4px;background:var(--surface);border:1px solid var(--border);font-family:var(--font);font-size:0.7rem;color:var(--text-muted);min-width:24px;text-align:center; }
+
+    /* ─── About Modal (fancy) ─── */
+    #aboutModal {
+      position:fixed;inset:0;z-index:10000;display:none;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0);backdrop-filter:blur(0px);transition:background 0.4s ease, backdrop-filter 0.4s ease;
+    }
+    #aboutModal.open { display:flex; background:rgba(0,0,0,0.6); backdrop-filter:blur(8px); }
+    #aboutModal .about-card {
+      background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 44px;text-align:center;
+      max-width:320px;width:90%;position:relative;overflow:hidden;
+      transform:scale(0.85) translateY(20px);opacity:0;
+      transition:transform 0.5s cubic-bezier(0.34,1.56,0.64,1), opacity 0.4s ease;
+    }
+    #aboutModal.open .about-card { transform:scale(1) translateY(0);opacity:1; }
+    #aboutModal .about-card::before {
+      content:'';position:absolute;inset:-2px;border-radius:22px;padding:2px;
+      background:conic-gradient(from 0deg, var(--accent), #c47a7a, #e8943a, #e8d44a, #f0ebe4, var(--accent));
+      -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite:xor;mask-composite:exclude;
+      animation:aboutBorderSpin 4s linear infinite;opacity:0.6;
+    }
+    @keyframes aboutBorderSpin { to { rotate:360deg; } }
+    #aboutModal .about-card::after {
+      content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+      background:radial-gradient(circle at 50% 50%, hsla(var(--hue),80%,60%,0.06), transparent 60%);
+      animation:aboutGlow 6s ease infinite alternate;pointer-events:none;
+    }
+    @keyframes aboutGlow { from{transform:scale(0.8);opacity:0.4} to{transform:scale(1.2);opacity:0.8} }
+    #aboutModal.closing .about-card { transform:scale(0.9) translateY(10px);opacity:0; }
+    #aboutModal.closing { background:rgba(0,0,0,0); backdrop-filter:blur(0px); }
 
     /* ─── Scrollbar (all lists) ─── */
     ::-webkit-scrollbar { width: 12px; }
@@ -596,7 +627,7 @@
       <span class="dot"></span>
       <span class="server-label">Online</span>
     </span>
-    <button class="settings-btn" id="shortcutsBtn" title="Keyboard shortcuts" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
+    <button class="settings-btn" id="shortcutsBtn" title="About" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
     <button class="settings-btn" id="settingsBtn" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
     </button>
@@ -799,6 +830,17 @@
 
 </div>
 
+<!-- About Modal (fancy) -->
+<div id="aboutModal">
+  <div class="about-card">
+    <img src="/illustration.png" alt="Ghetto Blaster" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+    <h2 style="font-size:1.1rem;font-weight:800;margin:0;background:linear-gradient(135deg,var(--accent),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Ghetto Blaster</h2>
+    <p style="font-size:0.72rem;color:var(--text-dim);margin:6px 0 2px;" id="aboutVersion">Personal music player & LAN streamer</p>
+    <p style="font-size:0.68rem;color:var(--text-dim);margin:0;">by <span style="color:var(--text-muted);font-weight:500;">n3lio</span></p>
+    <a href="https://github.com/n3lio/Ghetto-Blaster" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:0.7rem;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:5px 14px;border-radius:14px;transition:all 0.2s;">View on GitHub</a>
+  </div>
+</div>
+
 <!-- Settings Modal -->
 <div class="modal-overlay" id="settingsModal">
   <div class="modal">
@@ -875,13 +917,12 @@
     </div>
 
     <div class="settings-section">
-      <h4>About</h4>
-      <div style="display:flex;align-items:center;gap:16px;margin-bottom:10px;">
-        <img src="/illustration.png" alt="Ghetto Blaster" style="width:64px;height:64px;border-radius:12px;object-fit:cover;">
-        <div>
-          <p style="font-size:0.88rem;font-weight:600;color:var(--text);margin:0;">Ghetto Blaster</p>
-          <p style="font-size:0.72rem;color:var(--text-dim);margin:4px 0 0;" id="aboutText">Personal music player & LAN streamer</p>
-        </div>
+      <h4>Keyboard Shortcuts</h4>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:0.75rem;">
+        <kbd>Space</kbd><span style="color:var(--text-muted);">Play / Pause</span>
+        <kbd>&rarr;</kbd><span style="color:var(--text-muted);">Next track</span>
+        <kbd>&larr;</kbd><span style="color:var(--text-muted);">Previous track</span>
+        <kbd>Esc</kbd><span style="color:var(--text-muted);">Exit fullscreen / close modal</span>
       </div>
     </div>
 
@@ -2035,8 +2076,18 @@ audio.addEventListener('play', function() { if (!vizInitialized) initViz(); if (
 var settingsModal = document.getElementById('settingsModal');
 var settingsFolders = [];
 
+// About modal (fancy open/close)
 document.getElementById('shortcutsBtn').addEventListener('click', function() {
-  showToast('Space = Play/Pause | → = Next | ← = Prev | Esc = Exit expand');
+  var modal = document.getElementById('aboutModal');
+  modal.classList.remove('closing');
+  modal.classList.add('open');
+});
+document.getElementById('aboutModal').addEventListener('click', function(e) {
+  if (e.target === this || e.target.closest('.about-card') === null) {
+    var modal = this;
+    modal.classList.add('closing');
+    setTimeout(function() { modal.classList.remove('open', 'closing'); }, 450);
+  }
 });
 document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsCancel').addEventListener('click', function() { settingsModal.classList.remove('open'); });
@@ -2069,7 +2120,7 @@ async function openSettings() {
     document.getElementById('crossfadeVal').textContent = cfg.crossfadeDuration || 3;
     document.getElementById('crossfadeDuration').style.display = cfg.crossfade ? 'block' : 'none';
     var ver = await window.resonance.getVersion();
-    document.getElementById('aboutText').textContent = 'v' + ver + ' — by n3lio';
+    document.getElementById('aboutVersion').textContent = 'v' + ver;
 
     // Generate QR code for mobile access (via server API)
     var qrContainer = document.getElementById('qrCode');
@@ -2090,7 +2141,7 @@ async function openSettings() {
     }
   } else {
     settingsFolders = [];
-    document.getElementById('aboutText').textContent = 'Ghetto Blaster (web mode)';
+    document.getElementById('aboutVersion').textContent = 'web mode';
   }
   renderFolderList();
   settingsModal.classList.add('open');
