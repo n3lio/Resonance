@@ -1,12 +1,14 @@
-# Resonance
+# Ghetto Blaster
 
-Personal music player & LAN streamer for Windows. Play your collection, control it from your phone.
+Personal music player & LAN streamer for Windows, by n3lio.
+
+Play your collection, control it from your phone.
 
 ---
 
 ## Download
 
-[**Latest Release**](https://github.com/n3lio/Resonance/releases/latest) — grab `Resonance-Setup-X.X.X.exe`, install, done.
+[**Latest Release**](https://github.com/n3lio/Resonance/releases/latest) — grab `Ghetto-Blaster-Setup-X.X.X.exe`, install, done.
 
 > **Note:** Windows may show a SmartScreen warning ("Unknown publisher"). This is normal for indie software — click **More info** → **Run anyway**.
 
@@ -17,11 +19,17 @@ Personal music player & LAN streamer for Windows. Play your collection, control 
 - Play MP3, M4A, FLAC, OGG, WAV, AAC
 - Stream to any device on your network (phone, tablet, laptop)
 - Remote control from mobile (play, pause, skip, volume, browse library)
+- Switch audio output (PC speakers / Bluetooth) from desktop or phone
 - Fuzzy search across title, artist, album, genre
 - Smart shuffle (spaces artists, varies genres)
-- 10 audio visualizers (Nebula, Drift, Starfield, Aurora, Spectrum, Glow, Bars, Circular, Wave, Lyrics)
+- 10 audio visualizers with fullscreen expand mode
+- Equalizer with presets
 - Smart playlists by genre + drag & drop reorder
-- Play history tracking
+- Favorites (heart tracks)
+- Library views: Tracks, Albums, Artists
+- Sort by title, artist, album, duration
+- Crossfade between tracks (configurable)
+- Play history + stats dashboard
 - QR code in settings for instant mobile access
 - Customizable accent color theme
 - Auto-update

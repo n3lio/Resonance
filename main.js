@@ -28,7 +28,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'Resonance',
+    title: 'Ghetto Blaster',
     icon: getIconPath(),
     frame: false,
     webPreferences: {
@@ -60,7 +60,7 @@ function createWindow() {
 function createTray() {
   const icon = getTrayIcon();
   tray = new Tray(icon);
-  tray.setToolTip('Resonance');
+  tray.setToolTip('Ghetto Blaster');
   updateTrayMenu();
 
   tray.on('double-click', () => {
@@ -74,7 +74,7 @@ function createTray() {
 function updateTrayMenu() {
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Open Resonance',
+      label: 'Open Ghetto Blaster',
       click: () => {
         if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
       },
@@ -211,7 +211,7 @@ function createSplash() {
       @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}
     </style>
     <div class="splash">
-      <h1>Resonance</h1>
+      <h1>Ghetto Blaster</h1>
       <p><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>
     </div>`;
 

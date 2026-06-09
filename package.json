@@ -1,7 +1,7 @@
 {
-  "name": "resonance",
-  "version": "2.5.0",
-  "description": "Personal music player & LAN streamer for Windows",
+  "name": "ghetto-blaster",
+  "version": "3.0.0",
+  "description": "Personal music player & LAN streamer for Windows, by n3lio",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -23,8 +23,8 @@
     "electron-builder": "^24.9.1"
   },
   "build": {
-    "appId": "com.n3lio.resonance",
-    "productName": "Resonance",
+    "appId": "com.n3lio.ghettoblaster",
+    "productName": "Ghetto Blaster",
     "asar": false,
     "directories": {
       "output": "dist"
