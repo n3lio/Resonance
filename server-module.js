@@ -592,7 +592,8 @@ function startServer(port) {
           .filter(t => t.genre && pl.genreMatch.some(m => t.genre.toLowerCase().includes(m)))
           .map(t => t.id);
       }
-      return pl.trackIds || [];
+      // For manual playlists, filter out IDs that no longer exist in library
+      return (pl.trackIds || []).filter(id => id >= 0 && id < library.length);
     }
 
     app.get('/api/playlists/:id', (req, res) => {
@@ -646,6 +647,16 @@ function startServer(port) {
       playlists.push(playlist);
       savePlaylists();
       res.json({ ok: true, playlist: { id: playlist.id, name: playlist.name, trackCount: resolvedIds.length } });
+    });
+
+    app.put('/api/playlists/:id', (req, res) => {
+      const pl = playlists.find(p => p.id === req.params.id);
+      if (!pl) return res.status(404).json({ error: 'Playlist not found' });
+      if (req.body.name) pl.name = req.body.name;
+      if (req.body.genreMatch) pl.genreMatch = req.body.genreMatch;
+      if (req.body.trackIds) pl.trackIds = req.body.trackIds;
+      savePlaylists();
+      res.json({ ok: true });
     });
 
     app.delete('/api/playlists/:id', (req, res) => {

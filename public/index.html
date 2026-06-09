@@ -1159,8 +1159,10 @@ function renderPlaylists() {
   view.innerHTML = playlists.map(function(p, i) {
     var color = getPlaylistColor(p.name, i);
     var icon = '<div style="width:40px;height:40px;border-radius:8px;background:' + color + ';display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.1rem;font-weight:700;color:#0a0a0b;">' + esc(p.name.charAt(0).toUpperCase()) + '</div>';
-    return '<div class="playlist-card" draggable="true" data-id="' + p.id + '" data-idx="' + i + '">' + icon + '<div style="flex:1;min-width:0;margin-left:12px;"><div class="pl-name">' + esc(p.name) + '</div><div class="pl-count">' + p.trackCount + ' tracks</div></div>' +
-      '<div class="pl-actions"><button class="pl-btn play-pl" data-id="' + p.id + '">Play</button><button class="pl-btn del" data-id="' + p.id + '">Delete</button></div></div>';
+    var smartTag = p.type === 'smart' ? '<span style="font-size:0.6rem;color:var(--text-dim);background:var(--surface);padding:2px 5px;border-radius:8px;margin-left:6px;">Smart</span>' : '';
+    return '<div class="playlist-card" draggable="true" data-id="' + p.id + '" data-idx="' + i + '">' + icon +
+      '<div style="flex:1;min-width:0;margin-left:12px;"><div class="pl-name">' + esc(p.name) + smartTag + '</div><div class="pl-count">' + p.trackCount + ' tracks</div></div>' +
+      '<div class="pl-actions"><button class="pl-btn play-pl" data-id="' + p.id + '">Play</button><button class="pl-btn edit-pl" data-id="' + p.id + '">Edit</button><button class="pl-btn del" data-id="' + p.id + '">Delete</button></div></div>';
   }).join('');
 
   // Drag & drop reorder
@@ -1198,7 +1200,8 @@ function renderPlaylists() {
       }
       api('/playlists/' + btn.dataset.id).then(function(pl) {
         pl.tracks.forEach(cacheTrack);
-        queue = pl.tracks.map(function(t){ return t.id; });
+        var ids = pl.tracks.map(function(t){ return t.id; });
+        queue = smartShuffle(ids);
         currentIndex = 0;
         playCurrentTrack();
         renderQueue();
@@ -1213,6 +1216,26 @@ function renderPlaylists() {
       if (confirm('Delete this playlist?')) {
         api('/playlists/' + btn.dataset.id, 'DELETE').then(fetchPlaylists);
       }
+    });
+  });
+
+  view.querySelectorAll('.edit-pl').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var plId = btn.dataset.id;
+      api('/playlists/' + plId).then(function(pl) {
+        var newName = prompt('Playlist name:', pl.name);
+        if (newName === null) return;
+        var body = { name: newName.trim() || pl.name };
+        if (pl.type === 'smart') {
+          var genres = prompt('Genre keywords (comma separated):', (pl.genreMatch || []).join(', '));
+          if (genres !== null) body.genreMatch = genres.split(',').map(function(g){ return g.trim().toLowerCase(); }).filter(Boolean);
+        }
+        api('/playlists/' + plId, 'PUT', body).then(function(r) {
+          if (r.ok) fetchPlaylists();
+          else alert(r.error || 'Error');
+        });
+      });
     });
   });
 }
@@ -2073,7 +2096,7 @@ function remoteAddToQueue(trackId) {
       if (cmd === 'play-playlist' && msg.data.playlistId) {
         api('/playlists/' + msg.data.playlistId).then(function(pl) {
           pl.tracks.forEach(cacheTrack);
-          queue = pl.tracks.map(function(t){return t.id});
+          queue = smartShuffle(pl.tracks.map(function(t){return t.id}));
           currentIndex = 0;
           playCurrentTrack();
           renderQueue();
