@@ -8,6 +8,8 @@ Personal music player & LAN streamer for Windows. Play your collection, control 
 
 [**Latest Release**](https://github.com/n3lio/Resonance/releases/latest) — grab `Resonance-Setup-X.X.X.exe`, install, done.
 
+> **Note:** Windows may show a SmartScreen warning ("Unknown publisher"). This is normal for indie software — click **More info** → **Run anyway**.
+
 ---
 
 ## Features
