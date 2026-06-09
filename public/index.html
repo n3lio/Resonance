@@ -316,11 +316,13 @@
     }
     .np-viz-side canvas { width: 100%; height: 100%; display: block; }
     .np-viz-side.fullscreen {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 80px;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       z-index: 90; border: none;
-      flex: none; width: 100vw;
+      flex: none; width: 100vw; height: 100vh;
+      padding-bottom: 76px; box-sizing: border-box;
+      background: var(--bg);
     }
-    .np-viz-side.fullscreen .viz-gear { top: 16px; right: 16px; }
+    .np-viz-side.fullscreen .viz-gear { bottom: 16px; left: 16px; top: auto; right: auto; }
     .np-resizer {
       width: 6px; cursor: col-resize; background: transparent;
       position: relative; flex-shrink: 0;
@@ -694,6 +696,7 @@
         <button class="toolbar-btn lib-view-btn" data-view="albums">Albums</button>
         <button class="toolbar-btn lib-view-btn" data-view="artists">Artists</button>
       </div>
+      <button class="toolbar-btn" id="clearFilters" style="display:none;">Clear</button>
       <button class="toolbar-btn primary" id="playAll">Shuffle All</button>
     </div>
     <div class="track-count" id="trackCount"></div>
@@ -909,6 +912,18 @@ function getGenreStyle(genre) {
 }
 
 var PLACEHOLDER_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>';
+
+// Global: replace broken images with placeholder
+document.addEventListener('error', function(e) {
+  if (e.target.tagName === 'IMG' && e.target.closest('.track-cover,.player-cover,.np-cover,.group-icon')) {
+    var parent = e.target.parentElement;
+    e.target.remove();
+    var ph = document.createElement('div');
+    ph.className = 'ph';
+    ph.innerHTML = PLACEHOLDER_SVG;
+    parent.appendChild(ph);
+  }
+}, true);
 
 // ─── API ─────────────────────────────────────────────────────────────────────
 async function api(path, method, body) {
@@ -1774,9 +1789,28 @@ function applyFilters() {
 
   tracks = filtered;
   renderTracks();
+  // Show clear button if any filter is active
+  var hasFilter = q || genre || document.getElementById('sortSelect').value !== 'title';
+  document.getElementById('clearFilters').style.display = hasFilter ? '' : 'none';
 }
 
 document.getElementById('sortSelect').addEventListener('change', applyFilters);
+
+// Clear filters
+document.getElementById('clearFilters').addEventListener('click', function() {
+  document.getElementById('search').value = '';
+  document.getElementById('genreFilter').value = '';
+  document.getElementById('sortSelect').value = 'title';
+  tracks = allTracks;
+  renderTracks();
+  document.getElementById('clearFilters').style.display = 'none';
+  // Reset to Tracks view
+  currentLibView = 'tracks';
+  document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
+  document.getElementById('trackList').style.display = '';
+  document.getElementById('albumList').style.display = 'none';
+  document.getElementById('artistList').style.display = 'none';
+});
 
 document.getElementById('search').addEventListener('input', function() {
   clearTimeout(searchTimeout);
@@ -2031,7 +2065,8 @@ document.getElementById('settingsSave').addEventListener('click', async function
   settingsModal.classList.remove('open');
 
   if (window.resonance) {
-    await window.resonance.setConfig({ musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration });
+    window._appConfig = { musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration };
+    await window.resonance.setConfig(window._appConfig);
   }
   // Trigger rescan
   api('/rescan', 'POST').then(function() {
@@ -2289,6 +2324,19 @@ function remoteAddToQueue(trackId) {
 (function connectWS() {
   if (!location.host) return;
   var ws = new WebSocket((location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host);
+  ws.onopen = function() {
+    // Identify this device with a persistent name
+    var deviceName = localStorage.getItem('resonance-device-name');
+    if (!deviceName) {
+      var ua = navigator.userAgent;
+      if (/iPhone/.test(ua)) deviceName = 'iPhone';
+      else if (/Android/.test(ua)) deviceName = 'Android';
+      else if (/iPad/.test(ua)) deviceName = 'iPad';
+      else deviceName = 'Browser';
+      localStorage.setItem('resonance-device-name', deviceName);
+    }
+    ws.send(JSON.stringify({ type: 'set-name', name: deviceName }));
+  };
   ws.onmessage = function(e) {
     var msg = JSON.parse(e.data);
     if (msg.type === 'scan:start') {
