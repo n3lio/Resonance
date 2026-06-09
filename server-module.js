@@ -595,6 +595,7 @@ function startServer(port) {
         id: p.id,
         name: p.name,
         type: p.type || 'manual',
+        genreMatch: p.genreMatch || null,
         trackCount: p.type === 'smart' ? resolvePlaylistTracks(p).length : (p.trackIds || []).length,
         createdAt: p.createdAt,
       })));
