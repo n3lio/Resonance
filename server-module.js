@@ -555,6 +555,11 @@ function startServer(port) {
       res.json(desktopState);
     });
 
+    // Scan status (mobile checks on connect)
+    app.get('/api/scan/status', (req, res) => {
+      res.json({ scanning });
+    });
+
     // Full queue (fetched once by mobile, not every second)
     app.get('/api/desktop/queue', (req, res) => {
       res.json(desktopState.queue || []);

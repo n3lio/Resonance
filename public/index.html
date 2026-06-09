@@ -2339,8 +2339,9 @@ if (isDesktop) {
   var _origRenderQueue = renderQueue;
   renderQueue = function() { _origRenderQueue(); broadcastDesktopQueue(); };
 
-  // Broadcast queue on startup (in case a queue already exists)
+  // Broadcast queue on startup and after scan completes
   setTimeout(broadcastDesktopQueue, 2000);
+  setTimeout(function() { lastQueueSent = ''; broadcastDesktopQueue(); }, 8000);
 
   // Listen for remote commands from mobile
   // (via WS — handled below in WS section)
@@ -2702,6 +2703,8 @@ function remoteAddToQueue(trackId) {
       document.getElementById('scanIndicator').style.display = 'none';
       fetchTracks();
       fetchGenres();
+      // On mobile, queue might now be available after scan
+      if (!isDesktop) fetchRemoteQueue();
     }
     if (msg.type === 'library-updated') {
       fetchTracks();
@@ -2713,6 +2716,10 @@ function remoteAddToQueue(trackId) {
       lastDesktopState = msg.data;
       // Auto-switch to remote if desktop is playing and user hasn't picked stream (only switch once)
       if (msg.data.isPlaying && !userPickedStream && mobileMode !== 'remote') setMobileMode('remote');
+      // If queue is empty locally but desktop reports tracks, refetch
+      if (!remoteQueueData.length && msg.data.queueLength > 0) {
+        fetchRemoteQueue();
+      }
       if (mobileMode === 'remote') {
         updatePlayerFromDesktop(msg.data);
         // Only update highlight (not full re-render — queue fetched separately)
@@ -2805,12 +2812,16 @@ if (!isDesktop) {
     });
   });
 
-  // Fetch initial desktop state + queue + theme
+  // Fetch initial desktop state + queue + theme + scan status
   fetch('/api/desktop/state').then(function(r){ return r.json(); }).then(function(d) {
     lastDesktopState = d;
     if (d && d.isPlaying) setMobileMode('remote');
   }).catch(function(){});
   fetchRemoteQueue();
+  // Check if scan is in progress (to show/hide indicator correctly)
+  fetch('/api/scan/status').then(function(r){ return r.json(); }).then(function(d) {
+    document.getElementById('scanIndicator').style.display = d.scanning ? 'inline' : 'none';
+  }).catch(function(){});
   // Sync theme from server config
   fetch('/api/config/theme').then(function(r){ return r.json(); }).then(function(d) {
     if (d.hue != null) document.documentElement.style.setProperty('--hue', d.hue);
