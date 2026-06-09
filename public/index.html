@@ -312,7 +312,7 @@
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
       position: relative;
-      overflow: hidden;
+      z-index: 5;
     }
     .np-cover-wrap {
       flex-shrink: 0;
@@ -360,11 +360,12 @@
     }
 
     @media (max-width: 768px) {
-      .np-row { flex-direction: column; }
+      .np-row { flex-direction: column; height: auto !important; }
       .np-viz-side { display: none; }
       .np-cover-wrap { padding: 10px; }
       .np-cover { max-width: 100px; max-height: 100px; }
       .np-vresizer { display: none; }
+      .desktop-only-tab { display: none !important; }
     }
 
     /* ─── Queue Panel ─── */
@@ -595,8 +596,8 @@
   <div class="tab active" data-tab="nowplaying">Now Playing</div>
   <div class="tab" data-tab="library">Library</div>
   <div class="tab" data-tab="playlists">Playlists</div>
-  <div class="tab" data-tab="output">Output</div>
-  <div class="tab" data-tab="eq">EQ</div>
+  <div class="tab desktop-only-tab" data-tab="output">Output</div>
+  <div class="tab desktop-only-tab" data-tab="eq">EQ</div>
   <div class="tab" data-tab="users" id="usersTab" style="display:none;">Users</div>
   <div class="tab" data-tab="stats" id="statsTab" style="display:none;">Stats</div>
 </div>
@@ -876,6 +877,22 @@
     <div class="modal-actions">
       <button id="plCancel">Cancel</button>
       <button class="primary" id="plCreate">Create</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editPlModal">
+  <div class="modal">
+    <h3>Edit Playlist</h3>
+    <label>Name</label>
+    <input type="text" id="editPlName" placeholder="Playlist name...">
+    <div id="editPlGenreRow" style="margin-top:14px;">
+      <label>Genre keywords (comma separated)</label>
+      <input type="text" id="editPlGenres" placeholder="hip-hop, rap, trap...">
+    </div>
+    <div class="modal-actions">
+      <button id="editPlCancel">Cancel</button>
+      <button class="primary" id="editPlSave">Save</button>
     </div>
   </div>
 </div>
@@ -1441,17 +1458,20 @@ function renderPlaylists() {
       e.stopPropagation();
       var plId = btn.dataset.id;
       api('/playlists/' + plId).then(function(pl) {
-        var newName = prompt('Playlist name:', pl.name);
-        if (newName === null) return;
-        var body = { name: newName.trim() || pl.name };
+        // Open edit modal
+        document.getElementById('editPlName').value = pl.name || '';
+        var genreRow = document.getElementById('editPlGenreRow');
+        var genreInput = document.getElementById('editPlGenres');
         if (pl.type === 'smart') {
-          var genres = prompt('Genre keywords (comma separated):', (pl.genreMatch || []).join(', '));
-          if (genres !== null) body.genreMatch = genres.split(',').map(function(g){ return g.trim().toLowerCase(); }).filter(Boolean);
+          genreRow.style.display = '';
+          genreInput.value = (pl.genreMatch || []).join(', ');
+        } else {
+          genreRow.style.display = 'none';
+          genreInput.value = '';
         }
-        api('/playlists/' + plId, 'PUT', body).then(function(r) {
-          if (r.ok) fetchPlaylists();
-          else alert(r.error || 'Error');
-        });
+        document.getElementById('editPlModal').classList.add('open');
+        document.getElementById('editPlModal').dataset.plId = plId;
+        document.getElementById('editPlModal').dataset.plType = pl.type || 'manual';
       });
     });
   });
@@ -1477,6 +1497,25 @@ document.getElementById('plCreate').addEventListener('click', async function() {
   var r = await api('/playlists', 'POST', body);
   if (r.ok) { document.getElementById('playlistModal').classList.remove('open'); fetchPlaylists(); }
   else alert(r.error || 'Error');
+});
+
+// Edit playlist modal
+document.getElementById('editPlCancel').addEventListener('click', function() { document.getElementById('editPlModal').classList.remove('open'); });
+document.getElementById('editPlModal').addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+document.getElementById('editPlSave').addEventListener('click', async function() {
+  var modal = document.getElementById('editPlModal');
+  var plId = modal.dataset.plId;
+  var plType = modal.dataset.plType;
+  var name = document.getElementById('editPlName').value.trim();
+  if (!name) return;
+  var body = { name: name };
+  if (plType === 'smart') {
+    var genres = document.getElementById('editPlGenres').value.trim();
+    if (genres) body.genreMatch = genres.split(',').map(function(g){ return g.trim().toLowerCase(); }).filter(Boolean);
+  }
+  var r = await api('/playlists/' + plId, 'PUT', body);
+  if (r.ok) { modal.classList.remove('open'); fetchPlaylists(); showToast('Playlist updated'); }
+  else showToast(r.error || 'Error');
 });
 
 // ─── Now Playing Cover ───────────────────────────────────────────────────────
