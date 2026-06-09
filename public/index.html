@@ -303,33 +303,35 @@
     .track-item .fav-btn.liked { color: var(--red); opacity: 1; }
     .track-item:hover .add-btn, .track-item:hover .fav-btn { opacity: 1; }
 
-    /* ─── Now Playing Hero + Viz side-by-side on desktop ─── */
+    /* ─── Now Playing: Cover + Viz row ─── */
     .np-row {
       display: flex;
+      height: 40%;
+      min-height: 80px;
       flex-shrink: 0;
-      height: 38%;
-      min-height: 120px;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
-      transition: height 0.2s ease, min-height 0.2s ease;
-    }
-    .np-row.collapsed {
-      height: 0 !important;
-      min-height: 0 !important;
+      position: relative;
       overflow: hidden;
-      border-bottom: none;
     }
-    .np-hero {
+    .np-cover-wrap {
+      flex-shrink: 0;
+      padding: 12px;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      gap: 10px;
-      flex: 1;
-      min-width: 0;
-      min-height: 0;
+      height: 100%;
     }
+    .np-cover {
+      height: calc(100% - 0px);
+      aspect-ratio: 1;
+      max-width: 280px; max-height: 280px;
+      border-radius: 12px; overflow: hidden;
+      background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    .np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .np-cover .ph { width: 100%; height: 100%; background: linear-gradient(135deg,#201c18,#151310); display: flex; align-items: center; justify-content: center; }
+    .np-cover .ph svg { width: 40px; height: 40px; opacity: 0.2; color: var(--accent); }
     .np-viz-side {
       flex: 1;
       min-width: 80px;
@@ -346,17 +348,6 @@
     }
     .np-viz-side.fullscreen .viz-gear { bottom: 16px; left: 16px; top: auto; right: auto; }
     .np-viz-side.fullscreen .viz-menu { top: auto; bottom: 34px; right: auto; left: 0; }
-    .np-resizer {
-      width: 6px; cursor: col-resize; background: transparent;
-      position: relative; flex-shrink: 0;
-      transition: background 0.2s;
-    }
-    .np-resizer:hover, .np-resizer.active { background: var(--accent-subtle); }
-    .np-resizer::after {
-      content: ''; position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%); width: 2px; height: 30px;
-      border-radius: 1px; background: var(--border-light);
-    }
     .np-vresizer {
       height: 6px; cursor: row-resize; background: transparent;
       flex-shrink: 0; transition: background 0.2s; position: relative;
@@ -368,44 +359,12 @@
       border-radius: 1px; background: var(--border-light);
     }
 
-    .np-cover {
-      width: clamp(100px, 30vh, 280px); height: clamp(100px, 30vh, 280px);
-      border-radius: 12px; overflow: hidden;
-      background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      flex-shrink: 0;
-    }
-    .np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .np-cover .ph { width: 100%; height: 100%; background: linear-gradient(135deg,#201c18,#151310); display: flex; align-items: center; justify-content: center; }
-    .np-cover .ph svg { width: 40px; height: 40px; opacity: 0.2; color: var(--accent); }
-    .np-info { text-align: center; }
-    .np-title { font-size: 0.95rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
-    .np-artist { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
-    .np-controls { display: flex; align-items: center; gap: 6px; }
-    .np-controls button {
-      background: none; border: none; color: var(--text-muted); cursor: pointer;
-      padding: 7px; border-radius: 50%; transition: all 0.15s;
-    }
-    .np-controls button:hover { color: var(--text); background: var(--accent-subtle); }
-    .np-controls .np-play {
-      background: var(--accent); color: var(--bg); width: 44px; height: 44px;
-      border-radius: 50%; display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 4px 16px var(--accent-glow);
-    }
-    .np-controls .np-play:hover { box-shadow: 0 6px 24px var(--accent-glow); transform: scale(1.05); }
-    .np-progress { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 300px; }
-    .np-bar { flex: 1; height: 4px; background: var(--border); border-radius: 2px; cursor: pointer; }
-    .np-bar:hover { height: 6px; }
-    .np-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--rose)); border-radius: 2px; width: 0%; transition: width 0.3s linear; }
-    .np-time { font-size: 0.68rem; color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 30px; }
-
     @media (max-width: 768px) {
-      .np-row { flex-direction: column; height: auto !important; min-height: auto !important; }
+      .np-row { flex-direction: column; }
       .np-viz-side { display: none; }
-      .np-cover { width: 100px; height: 100px; }
-      .np-hero { padding: 14px 16px 10px; }
-      .np-title { max-width: 200px; }
+      .np-cover-wrap { padding: 10px; }
+      .np-cover { max-width: 100px; max-height: 100px; }
       .np-vresizer { display: none; }
-      #toggleHero { display: none; }
     }
 
     /* ─── Queue Panel ─── */
@@ -646,59 +605,42 @@
 <div class="main-area">
   <!-- Now Playing Tab -->
   <div class="panel active" id="panel-nowplaying">
-    <div class="np-row">
-    <!-- Hero: big cover + track info + controls -->
-    <div class="np-hero" id="npHero">
-      <div class="np-cover" id="npCover">
-        <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
-      </div>
-      <div class="np-info">
-        <div class="np-title" id="npTitle">Nothing playing</div>
-        <div class="np-artist" id="npArtist">Pick a track to start</div>
-      </div>
-      <div class="np-controls">
-        <button id="npPrev" title="Previous"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
-        <button class="np-play" id="npPlay" title="Play/Pause"><svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg></button>
-        <button id="npNext" title="Next"><svg viewBox="0 0 24 24" fill="currentColor" width="20" height="20"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
-        <button id="npShuffle" title="Shuffle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></button>
-      </div>
-      <div class="np-progress">
-        <span class="np-time" id="npCurrent">0:00</span>
-        <div class="np-bar" id="npBar"><div class="np-fill" id="npFill"></div></div>
-        <span class="np-time" id="npTotal">0:00</span>
-      </div>
-    </div>
-    <div class="np-resizer" id="npResizer"></div>
-    <!-- Viz side (desktop only) -->
-    <div class="np-viz-side" id="vizContainer">
-      <div class="viz-gear">
-        <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer">
-          <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
-        </button>
-        <div class="viz-menu" id="vizMenu">
-          <div class="viz-menu-item" data-viz="nebula">Nebula</div>
-          <div class="viz-menu-item active" data-viz="drift">Drift</div>
-          <div class="viz-menu-item" data-viz="wave">Wave</div>
-          <div class="viz-menu-item" data-viz="starfield">Starfield</div>
-          <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
-          <div class="viz-menu-item" data-viz="glow">Glow</div>
-          <div class="viz-menu-item" data-viz="aurora">Aurora</div>
-          <div class="viz-menu-item" data-viz="bars">Bars</div>
-          <div class="viz-menu-item" data-viz="circular">Circular</div>
-          <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
-          <div class="viz-menu-item close-item" id="vizFullscreen">Expand</div>
-          <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
+    <div class="np-row" id="npRow">
+      <!-- Cover (top-left) -->
+      <div class="np-cover-wrap">
+        <div class="np-cover" id="npCover">
+          <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
         </div>
       </div>
-      <canvas id="vizCanvas"></canvas>
-    </div>
+      <!-- Viz side -->
+      <div class="np-viz-side" id="vizContainer">
+        <div class="viz-gear">
+          <button class="viz-gear-btn" id="vizGearBtn" title="Visualizer">
+            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+          </button>
+          <div class="viz-menu" id="vizMenu">
+            <div class="viz-menu-item" data-viz="nebula">Nebula</div>
+            <div class="viz-menu-item active" data-viz="drift">Drift</div>
+            <div class="viz-menu-item" data-viz="wave">Wave</div>
+            <div class="viz-menu-item" data-viz="starfield">Starfield</div>
+            <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
+            <div class="viz-menu-item" data-viz="glow">Glow</div>
+            <div class="viz-menu-item" data-viz="aurora">Aurora</div>
+            <div class="viz-menu-item" data-viz="bars">Bars</div>
+            <div class="viz-menu-item" data-viz="circular">Circular</div>
+            <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
+            <div class="viz-menu-item close-item" id="vizFullscreen">Expand</div>
+            <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
+          </div>
+        </div>
+        <canvas id="vizCanvas"></canvas>
+      </div>
     </div><!-- end np-row -->
     <div class="np-vresizer" id="npVResizer"></div>
     <!-- Queue below -->
     <div class="queue-header">
       <h2>Queue <span id="queueCount" style="font-weight:400;color:var(--text-dim);font-size:0.75rem;"></span></h2>
       <div class="queue-actions">
-        <button id="toggleHero" title="Show/Hide player">&#9650;</button>
         <button id="shuffleQueue">Shuffle</button>
         <button id="clearQueue">Clear</button>
       </div>
@@ -748,6 +690,11 @@
     <div style="padding:20px;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Equalizer</h2>
+      </div>
+      <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;height:180px;gap:6px;padding:0 10px;"></div>
+      <div id="eqLabels" style="display:flex;justify-content:space-between;padding:6px 10px 0;font-size:0.62rem;color:var(--text-dim);"></div>
+      <div style="margin-top:14px;display:flex;align-items:center;gap:10px;">
+        <span style="font-size:0.75rem;color:var(--text-dim);">Preset:</span>
         <select id="eqPreset" class="genre-select" style="max-width:140px;">
           <option value="flat">Flat</option>
           <option value="bass">Bass Boost</option>
@@ -757,19 +704,25 @@
           <option value="late-night">Late Night</option>
         </select>
       </div>
-      <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;height:180px;gap:6px;padding:0 10px;"></div>
-      <div id="eqLabels" style="display:flex;justify-content:space-between;padding:6px 10px 0;font-size:0.62rem;color:var(--text-dim);"></div>
     </div>
   </div>
 
   <!-- Output Tab -->
   <div class="panel" id="panel-output">
-    <div style="padding:20px;">
+    <div style="padding:20px;overflow-y:auto;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Audio Output</h2>
       </div>
-      <p style="font-size:0.78rem;color:var(--text-dim);margin-bottom:12px;">Select where music plays on the server</p>
+      <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);margin-bottom:10px;">Local Devices</h3>
       <div id="outputList"></div>
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <h3 style="font-size:0.78rem;font-weight:600;color:var(--text-dim);">Bluetooth</h3>
+          <button class="toolbar-btn" id="btScanBtn" style="padding:5px 10px;font-size:0.72rem;">Scan</button>
+        </div>
+        <p style="font-size:0.72rem;color:var(--text-dim);margin-bottom:10px;">Pair a Bluetooth speaker from Windows Settings, then it will appear in Local Devices above.</p>
+        <div id="btDevicesList"></div>
+      </div>
     </div>
   </div>
 
@@ -1328,25 +1281,29 @@ function renderAlbums() {
   var source = (genre || q) ? tracks : allTracks;
   var albumMap = {};
   source.forEach(function(t) {
-    var key = t.album + '|||' + t.artist;
-    if (!albumMap[key]) albumMap[key] = { album: t.album, artist: t.artist, tracks: [], hasCover: t.hasCover, coverId: t.id };
+    var key = (t.album || 'Unknown Album').toLowerCase().trim();
+    if (!albumMap[key]) albumMap[key] = { album: t.album || 'Unknown Album', artists: [], tracks: [], hasCover: false, coverId: null };
     albumMap[key].tracks.push(t.id);
+    if (albumMap[key].artists.indexOf(t.artist) === -1) albumMap[key].artists.push(t.artist);
+    if (!albumMap[key].hasCover && t.hasCover) { albumMap[key].hasCover = true; albumMap[key].coverId = t.id; }
   });
   var sort = document.getElementById('sortSelect').value;
   var albums = Object.values(albumMap).sort(function(a, b) {
     switch(sort) {
       case 'title-desc': return b.album.localeCompare(a.album);
-      case 'artist': return a.artist.localeCompare(b.artist);
+      case 'artist': return a.artists[0].localeCompare(b.artists[0]);
       default: return a.album.localeCompare(b.album);
     }
   });
   document.getElementById('trackCount').textContent = albums.length + ' album' + (albums.length !== 1 ? 's' : '');
+  var ALBUM_PH = '<div class="group-icon" style="background:var(--surface);display:flex;align-items:center;justify-content:center;border-radius:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:20px;height:20px;opacity:0.3;color:var(--accent);"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>';
   list.innerHTML = albums.map(function(a) {
+    var artistLabel = a.artists.length > 2 ? a.artists[0] + ' + ' + (a.artists.length - 1) + ' more' : a.artists.join(', ');
     var coverHtml = a.hasCover
       ? '<div class="group-icon" style="background:none;overflow:hidden;border-radius:6px;"><img src="/api/cover/' + a.coverId + '" style="width:100%;height:100%;object-fit:cover;"></div>'
-      : '<div class="group-icon" style="background:var(--surface);">' + esc(a.album.charAt(0)) + '</div>';
-    return '<div class="group-card" data-album="' + esc(a.album) + '" data-artist="' + esc(a.artist) + '">' +
-      coverHtml + '<div><div class="group-name">' + esc(a.album) + '</div><div class="group-count">' + esc(a.artist) + ' — ' + a.tracks.length + ' tracks</div></div></div>';
+      : ALBUM_PH;
+    return '<div class="group-card" data-album="' + esc(a.album) + '">' +
+      coverHtml + '<div><div class="group-name">' + esc(a.album) + '</div><div class="group-count">' + esc(artistLabel) + ' — ' + a.tracks.length + ' tracks</div></div></div>';
   }).join('');
   list.querySelectorAll('.group-card').forEach(function(card) {
     card.addEventListener('click', function() {
@@ -1522,25 +1479,20 @@ document.getElementById('plCreate').addEventListener('click', async function() {
   else alert(r.error || 'Error');
 });
 
-// ─── Now Playing Hero ────────────────────────────────────────────────────────
+// ─── Now Playing Cover ───────────────────────────────────────────────────────
 var lastHeroTrackId = null;
 var HERO_PH = '<div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>';
 
 function updateNowPlayingHero() {
-  var trackId, track, playing;
+  var trackId, track;
 
   if (!isDesktop && mobileMode === 'remote' && lastDesktopState) {
     trackId = lastDesktopState.trackId;
-    track = { title: lastDesktopState.title, artist: lastDesktopState.artist, hasCover: lastDesktopState.hasCover };
-    playing = lastDesktopState.isPlaying;
+    track = { hasCover: lastDesktopState.hasCover };
   } else {
     trackId = queue[currentIndex];
     track = getTrack(trackId);
-    playing = isPlaying;
   }
-
-  document.getElementById('npTitle').textContent = track ? track.title : 'Nothing playing';
-  document.getElementById('npArtist').textContent = track ? track.artist : 'Pick a track to start';
 
   if (trackId !== lastHeroTrackId) {
     lastHeroTrackId = trackId;
@@ -1551,31 +1503,7 @@ function updateNowPlayingHero() {
       cover.innerHTML = HERO_PH;
     }
   }
-
-  var playSvg = playing
-    ? '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M6 4h4v16H6zm8 0h4v16h-4z"/></svg>'
-    : '<svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24"><path d="M8 5v14l11-7z"/></svg>';
-  document.getElementById('npPlay').innerHTML = playSvg;
 }
-
-document.getElementById('npPlay').addEventListener('click', function() { document.getElementById('playPauseBtn').click(); });
-document.getElementById('npNext').addEventListener('click', function() { document.getElementById('nextBtn').click(); });
-document.getElementById('npPrev').addEventListener('click', function() { document.getElementById('prevBtn').click(); });
-document.getElementById('npShuffle').addEventListener('click', function() { document.getElementById('shuffleBtn').click(); });
-
-document.getElementById('npBar').addEventListener('click', function(e) {
-  if (!isDesktop && mobileMode === 'remote') return;
-  if (!audio.duration) return;
-  var rect = e.currentTarget.getBoundingClientRect();
-  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
-});
-
-audio.addEventListener('timeupdate', function() {
-  if (!audio.duration) return;
-  document.getElementById('npFill').style.width = (audio.currentTime / audio.duration * 100) + '%';
-  document.getElementById('npCurrent').textContent = formatTime(audio.currentTime);
-  document.getElementById('npTotal').textContent = formatTime(audio.duration);
-});
 
 // Save current queue as playlist
 document.getElementById('saveQueueAsPlaylist').addEventListener('click', function() {
@@ -1970,34 +1898,10 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// Resizer (drag to resize hero/viz split)
-(function() {
-  var resizer = document.getElementById('npResizer');
-  var hero = document.getElementById('npHero');
-  var dragging = false;
-  resizer.addEventListener('mousedown', function(e) {
-    e.preventDefault(); dragging = true; resizer.classList.add('active');
-    document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
-  });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    var row = hero.parentElement;
-    var rowRect = row.getBoundingClientRect();
-    var pct = ((e.clientX - rowRect.left) / rowRect.width) * 100;
-    pct = Math.max(25, Math.min(75, pct));
-    hero.style.flex = 'none';
-    hero.style.width = pct + '%';
-    if (viz) viz.resize();
-  });
-  document.addEventListener('mouseup', function() {
-    if (dragging) { dragging = false; resizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
-  });
-})();
-
-// Vertical resizer (hero height) — constrained: min 15%, max 55%
+// Vertical resizer (cover+viz / queue split) — constrained: min 20%, max 65%
 (function() {
   var vresizer = document.getElementById('npVResizer');
-  var npRow = document.querySelector('.np-row');
+  var npRow = document.getElementById('npRow');
   var dragging = false;
   if (!vresizer || !npRow) return;
   vresizer.addEventListener('mousedown', function(e) {
@@ -2006,31 +1910,16 @@ document.addEventListener('keydown', function(e) {
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    if (npRow.classList.contains('collapsed')) return;
     var panel = npRow.parentElement;
     var panelRect = panel.getBoundingClientRect();
     var pct = ((e.clientY - panelRect.top) / panelRect.height) * 100;
-    pct = Math.max(15, Math.min(55, pct));
+    pct = Math.max(20, Math.min(65, pct));
+    npRow.style.flex = 'none';
     npRow.style.height = pct + '%';
     if (viz) viz.resize();
   });
   document.addEventListener('mouseup', function() {
     if (dragging) { dragging = false; vresizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
-  });
-})();
-
-// Toggle hero (show/hide the big player)
-(function() {
-  var btn = document.getElementById('toggleHero');
-  var npRow = document.querySelector('.np-row');
-  var vresizer = document.getElementById('npVResizer');
-  if (!btn || !npRow) return;
-  btn.addEventListener('click', function() {
-    var collapsed = npRow.classList.toggle('collapsed');
-    btn.innerHTML = collapsed ? '&#9660;' : '&#9650;';
-    btn.title = collapsed ? 'Show player' : 'Hide player';
-    if (vresizer) vresizer.style.display = collapsed ? 'none' : '';
-    if (!collapsed && viz) viz.resize();
   });
 })();
 
@@ -2412,6 +2301,18 @@ function fetchOutputDevices() {
 
 document.querySelector('[data-tab="output"]').addEventListener('click', fetchOutputDevices);
 
+// BT Scan button — opens Windows Bluetooth settings
+document.getElementById('btScanBtn').addEventListener('click', function() {
+  if (isDesktop && window.resonance && window.resonance.openBluetoothSettings) {
+    window.resonance.openBluetoothSettings();
+    showToast('Opening Bluetooth settings — pair your device, then come back');
+    // Refresh device list after user may have paired
+    setTimeout(fetchOutputDevices, 8000);
+  } else {
+    showToast('Pair Bluetooth from your device settings, then refresh');
+  }
+});
+
 // ─── Equalizer ──────────────────────────────────────────────────────────────
 var EQ_BANDS = [60, 150, 400, 1000, 2500, 6000, 15000];
 var EQ_LABELS = ['60', '150', '400', '1K', '2.5K', '6K', '15K'];
@@ -2563,15 +2464,8 @@ function updatePlayerFromDesktop(d) {
   // Sync volume slider
   if (d.volume != null) document.getElementById('volumeSlider').value = d.volume;
 
-  // Update hero
+  // Update cover
   updateNowPlayingHero();
-
-  // Sync hero progress from remote
-  if (d.duration) {
-    document.getElementById('npFill').style.width = (d.progress / d.duration * 100) + '%';
-    document.getElementById('npCurrent').textContent = formatTime(d.progress);
-    document.getElementById('npTotal').textContent = formatTime(d.duration);
-  }
 }
 
 function updatePlayerFromLocal() {

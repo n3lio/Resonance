@@ -143,6 +143,12 @@ ipcMain.handle('window:maximize', () => {
 });
 ipcMain.handle('window:close', () => { if (mainWindow) mainWindow.close(); });
 
+// Open Bluetooth settings (Windows)
+ipcMain.handle('app:open-bt-settings', () => {
+  const { exec } = require('child_process');
+  exec('start ms-settings:bluetooth');
+});
+
 // Config / Settings
 ipcMain.handle('config:get', () => getConfig());
 
