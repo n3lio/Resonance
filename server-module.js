@@ -781,10 +781,22 @@ function startServer(port) {
     // Users endpoint (must be before catch-all)
     var connectedUsers = new Map();
     var userCounter = 0;
+    var uniqueIps = new Set();
+    var serverStartTime = Date.now();
+
     app.get('/api/users', (req, res) => {
       const users = [];
       connectedUsers.forEach((u) => users.push({ id: u.id, name: u.name, connectedAt: u.connectedAt }));
       res.json(users);
+    });
+
+    app.get('/api/server/stats', (req, res) => {
+      res.json({
+        uptime: Math.floor((Date.now() - serverStartTime) / 1000),
+        uniqueDevices: uniqueIps.size,
+        currentConnections: connectedUsers.size,
+        totalConnections: userCounter,
+      });
     });
 
     // Catch-all: serve SPA
@@ -812,8 +824,9 @@ function startServer(port) {
         clients.add(ws);
         userCounter++;
         const userId = 'user-' + userCounter;
-        const ip = req.socket.remoteAddress || '';
-        connectedUsers.set(ws, { id: userId, name: 'Device ' + userCounter, ip: ip.replace('::ffff:', ''), connectedAt: new Date().toISOString() });
+        const ip = (req.socket.remoteAddress || '').replace('::ffff:', '');
+        uniqueIps.add(ip);
+        connectedUsers.set(ws, { id: userId, name: 'Device ' + userCounter, ip: ip, connectedAt: new Date().toISOString() });
 
         ws.send(JSON.stringify({ type: 'state', data: getState() }));
         broadcast({ type: 'users:changed', data: { count: connectedUsers.size } });

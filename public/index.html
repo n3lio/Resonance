@@ -350,17 +350,28 @@
       min-width: 80px;
       position: relative;
       border-left: 1px solid var(--border);
+      background: #0a0a0b;
     }
-    .np-viz-side canvas { width: 100%; height: 100%; display: block; }
-    .np-viz-side.fullscreen {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      z-index: 90; border: none;
-      flex: none; width: 100vw; height: 100vh;
-      padding-bottom: 76px; box-sizing: border-box;
-      background: var(--bg);
+    .np-viz-side canvas { width: 100%; height: 100%; display: block; transition: opacity 0.3s; }
+    .np-viz-side:not(.active) canvas { opacity: 0; }
+    .np-track-info {
+      position: absolute; bottom: 16px; left: 20px; right: 60px; pointer-events: none; z-index: 5;
     }
-    .np-viz-side.fullscreen .viz-gear { bottom: 16px; left: 16px; top: auto; right: auto; }
-    .np-viz-side.fullscreen .viz-menu { top: auto; bottom: 34px; right: auto; left: 0; }
+    .np-track-title {
+      font-size: 1.1rem; font-weight: 700; color: #f0ebe4;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.7); line-height: 1.3;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .np-track-artist {
+      font-size: 0.82rem; font-weight: 500; color: rgba(240,235,228,0.7);
+      text-shadow: 0 1px 8px rgba(0,0,0,0.6); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .np-track-album {
+      font-size: 0.7rem; font-weight: 400; color: rgba(240,235,228,0.45);
+      text-shadow: 0 1px 6px rgba(0,0,0,0.5); margin-top: 2px; font-style: italic;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
     .np-vresizer {
       height: 6px; cursor: row-resize; background: transparent;
       flex-shrink: 0; transition: background 0.2s; position: relative;
@@ -676,11 +687,15 @@
             <div class="viz-menu-item" data-viz="bars">Bars</div>
             <div class="viz-menu-item" data-viz="circular">Circular</div>
             <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
-            <div class="viz-menu-item close-item" id="vizFullscreen">Expand</div>
-            <div class="viz-menu-item close-item" id="vizCloseItem">Hide</div>
+            <div class="viz-menu-item close-item" id="vizCloseItem">Disable visualization</div>
           </div>
         </div>
         <canvas id="vizCanvas"></canvas>
+        <div class="np-track-info" id="npTrackInfo">
+          <div class="np-track-title" id="npTrackTitle"></div>
+          <div class="np-track-artist" id="npTrackArtist"></div>
+          <div class="np-track-album" id="npTrackAlbum"></div>
+        </div>
       </div>
     </div><!-- end np-row -->
     <div class="np-vresizer" id="npVResizer"></div>
@@ -797,6 +812,11 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
         <div><h3 style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Top Artists (30 days)</h3><div id="statsArtists"></div></div>
         <div><h3 style="font-size:0.82rem;font-weight:600;color:var(--text-muted);margin-bottom:10px;">Top Genres (30 days)</h3><div id="statsGenres"></div></div>
+      </div>
+      <!-- Server Stats -->
+      <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:20px;">
+        <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);margin-bottom:12px;">Server Stats</h2>
+        <div id="serverStatsCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;"></div>
       </div>
     </div>
   </div>
@@ -922,7 +942,7 @@
         <kbd>Space</kbd><span style="color:var(--text-muted);">Play / Pause</span>
         <kbd>&rarr;</kbd><span style="color:var(--text-muted);">Next track</span>
         <kbd>&larr;</kbd><span style="color:var(--text-muted);">Previous track</span>
-        <kbd>Esc</kbd><span style="color:var(--text-muted);">Exit fullscreen / close modal</span>
+        <kbd>Esc</kbd><span style="color:var(--text-muted);">Close modal</span>
       </div>
     </div>
 
@@ -1721,6 +1741,11 @@ function playCurrentTrack() {
   document.getElementById('playerArtist').textContent = track ? track.artist : '';
   document.getElementById('totalTime').textContent = track ? formatTime(track.duration) : '0:00';
 
+  // Update Now Playing track info overlay
+  document.getElementById('npTrackTitle').textContent = track ? track.title : '';
+  document.getElementById('npTrackArtist').textContent = track ? track.artist : '';
+  document.getElementById('npTrackAlbum').textContent = track && track.album ? track.album : '';
+
   var cover = document.getElementById('playerCover');
   if (track && track.hasCover) {
     cover.innerHTML = '<img src="/api/cover/' + trackId + '">';
@@ -1797,6 +1822,12 @@ audio.addEventListener('ended', function() {
     updatePlayBtn();
   }
 });
+
+// ─── Player bar cover click → open Now Playing ──────────────────────────────
+document.getElementById('playerCover').addEventListener('click', function() {
+  document.querySelector('[data-tab="nowplaying"]').click();
+});
+document.getElementById('playerCover').style.cursor = 'pointer';
 
 // ─── Controls ────────────────────────────────────────────────────────────────
 document.getElementById('playPauseBtn').addEventListener('click', function() {
@@ -2059,23 +2090,11 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
     if (isDesktop && window.resonance) window.resonance.setConfig({ vizMode: vizMode });
   });
 });
-document.getElementById('vizCloseItem').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.remove('open'); toggleViz(); });
-
-// Expand/collapse viz
-document.getElementById('vizFullscreen').addEventListener('click', function(e) {
+document.getElementById('vizCloseItem').addEventListener('click', function(e) {
   e.stopPropagation();
   document.getElementById('vizMenu').classList.remove('open');
-  var vc = document.getElementById('vizContainer');
-  var isFs = vc.classList.toggle('fullscreen');
-  document.getElementById('vizFullscreen').textContent = isFs ? 'Collapse' : 'Expand';
-  if (viz) viz.resize();
-});
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape' && document.getElementById('vizContainer').classList.contains('fullscreen')) {
-    document.getElementById('vizContainer').classList.remove('fullscreen');
-    document.getElementById('vizFullscreen').textContent = 'Expand';
-    if (viz) viz.resize();
-  }
+  toggleViz();
+  document.getElementById('vizCloseItem').textContent = vizVisible ? 'Disable visualization' : 'Enable visualization';
 });
 
 // Vertical resizer (cover+viz / queue split) — constrained: min 20%, max 65%
@@ -2607,6 +2626,25 @@ function fetchStats() {
       return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%;background:' + barColor + '"></div></div><span class="stat-count">' + g.count + '</span></div>';
     }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
   }).catch(function(){});
+
+  // Server stats
+  fetch('/api/server/stats').then(function(r){ return r.json(); }).then(function(sv) {
+    var uptimeStr = formatUptime(sv.uptime);
+    var cards = document.getElementById('serverStatsCards');
+    cards.innerHTML =
+      '<div class="stat-card"><div class="stat-value">' + uptimeStr + '</div><div class="stat-label">Server uptime</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + sv.uniqueDevices + '</div><div class="stat-label">Unique devices</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + sv.currentConnections + '</div><div class="stat-label">Active now</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + sv.totalConnections + '</div><div class="stat-label">Total connections</div></div>';
+  }).catch(function(){});
+}
+
+function formatUptime(seconds) {
+  if (seconds < 60) return seconds + 's';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'min';
+  var h = Math.floor(seconds / 3600);
+  var m = Math.floor((seconds % 3600) / 60);
+  return h + 'h ' + (m > 0 ? m + 'min' : '');
 }
 
 function showToast(msg) {
