@@ -177,9 +177,12 @@ function setupAutoUpdater() {
     console.error('Auto-updater error:', err.message);
   });
 
-  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-    console.log('Update check skipped:', err.message);
-  });
+  // Delay update check to ensure renderer is ready to receive events
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.log('Update check skipped:', err.message);
+    });
+  }, 5000);
 }
 
 // ─── Splash Screen ──────────────────────────────────────────────────────────
