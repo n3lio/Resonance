@@ -86,14 +86,27 @@
     header * { -webkit-app-region: no-drag; }
     header h1 { -webkit-app-region: drag; }
 
+    @property --title-end {
+      syntax: '<color>';
+      inherits: false;
+      initial-value: #c47a7a;
+    }
     header h1 {
       font-size: 1.05rem;
-      font-weight: 700;
+      font-weight: 800;
       letter-spacing: -0.02em;
-      background: linear-gradient(135deg, var(--accent), var(--rose));
+      --title-end: #c47a7a;
+      background: linear-gradient(135deg, var(--accent), var(--title-end));
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      animation: titleShift 10s ease infinite;
+    }
+    @keyframes titleShift {
+      0%, 100% { --title-end: #c47a7a; }
+      25%      { --title-end: #e8943a; }
+      50%      { --title-end: #e8d44a; }
+      75%      { --title-end: #f0ebe4; }
     }
 
     .header-right {
