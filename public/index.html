@@ -101,12 +101,24 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       animation: titleShift 10s ease infinite;
+      position: relative;
+      cursor: default;
+      transition: letter-spacing 0.2s;
+    }
+    header h1:hover {
+      animation: titleGlitch 0.4s steps(3) 1, titleShift 10s ease infinite;
     }
     @keyframes titleShift {
       0%, 100% { --title-end: #c47a7a; }
       25%      { --title-end: #e8943a; }
       50%      { --title-end: #e8d44a; }
       75%      { --title-end: #f0ebe4; }
+    }
+    @keyframes titleGlitch {
+      0% { text-shadow: 2px 0 #c47a7a, -2px 0 #7ac4c4; transform: translate(0); }
+      33% { text-shadow: -2px 0 #e8a435, 1px 0 #b68adf; transform: translate(-1px, 1px); }
+      66% { text-shadow: 1px 0 #7ac47a, -1px 0 #e05555; transform: translate(1px, -1px); }
+      100% { text-shadow: none; transform: translate(0); }
     }
 
     .header-right {
@@ -128,12 +140,16 @@
       font-weight: 500;
       color: var(--text-muted);
       background: transparent;
+      cursor: pointer;
+      transition: all 0.2s;
     }
+    .server-pill:hover { border-color: var(--text-muted); background: var(--surface); }
     .server-pill.on { border-color: var(--green); color: var(--green); }
+    .server-pill.on:hover { background: rgba(122,196,122,0.06); border-color: var(--green); box-shadow: 0 0 12px rgba(122,196,122,0.15); }
     .server-pill .dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--text-dim);
-      transition: background 0.2s;
+      transition: all 0.2s;
     }
     .server-pill.on .dot { background: var(--green); box-shadow: 0 0 6px rgba(122,196,122,0.5); }
 
@@ -262,8 +278,14 @@
     .toolbar-btn.primary {
       background: linear-gradient(135deg, var(--accent), hsl(var(--hue), 90%, 78%));
       color: #0a0a0b; border-color: var(--accent); font-weight: 600;
+      transition: all 0.2s;
     }
-    .toolbar-btn.primary:hover { box-shadow: 0 4px 16px var(--accent-glow); }
+    .toolbar-btn.primary:hover {
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transform: translateY(-1px);
+      filter: brightness(1.1);
+    }
+    .toolbar-btn.primary:active { transform: translateY(0); filter: brightness(0.95); }
 
     /* ─── Panels / Layout ─── */
     .panel { display: none; flex: 1; flex-direction: column; overflow: hidden; min-height: 0; }
@@ -319,8 +341,9 @@
     /* ─── Now Playing: Cover + Viz row ─── */
     .np-row {
       display: flex;
-      height: 40%;
+      height: 304px; /* Cover max (280px) + padding (24px) */
       min-height: 80px;
+      max-height: 65%;
       flex-shrink: 0;
       border-bottom: 1px solid var(--border);
       background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
@@ -334,13 +357,24 @@
       align-items: center;
       justify-content: center;
       height: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .np-cover-ambient {
+      position: absolute; inset: 0; z-index: 1;
+      opacity: 0.5;
+      filter: blur(40px) saturate(1.5);
+      transition: opacity 0.8s;
+      pointer-events: none;
     }
     .np-cover {
       height: calc(100% - 0px);
       aspect-ratio: 1;
       max-width: 280px; max-height: 280px;
       border-radius: 12px; overflow: hidden;
-      background: var(--surface); box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      background: var(--surface);
+      position: relative;
+      z-index: 2;
     }
     .np-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
     .np-cover .ph { width: 100%; height: 100%; background: linear-gradient(135deg,#201c18,#151310); display: flex; align-items: center; justify-content: center; }
@@ -367,10 +401,13 @@
       text-shadow: 0 1px 8px rgba(0,0,0,0.6); margin-top: 2px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .np-track-album {
+    .np-track-meta {
       font-size: 0.7rem; font-weight: 400; color: rgba(240,235,228,0.45);
-      text-shadow: 0 1px 6px rgba(0,0,0,0.5); margin-top: 2px; font-style: italic;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.5); margin-top: 4px;
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+    }
+    .np-track-meta .np-genre-tag {
+      font-size: 0.62rem; padding: 2px 7px; border-radius: 8px; font-weight: 500;
     }
     .np-vresizer {
       height: 6px; cursor: row-resize; background: transparent;
@@ -397,10 +434,10 @@
     .queue-header h2 { font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
     .queue-actions { display: flex; gap: 6px; }
     .queue-actions button {
-      background: none; border: none; color: var(--text-dim); cursor: pointer;
-      font-size: 0.72rem; font-family: var(--font); padding: 4px 8px; border-radius: 12px; transition: all 0.2s;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer;
+      font-size: 0.72rem; font-family: var(--font); padding: 5px 12px; border-radius: 14px; transition: all 0.2s; font-weight: 500;
     }
-    .queue-actions button:hover { color: var(--accent); background: var(--accent-subtle); }
+    .queue-actions button:hover { color: var(--accent); background: var(--accent-subtle); border-color: var(--accent); }
 
     /* ─── Playlists ─── */
     .playlists-view { padding: 16px 20px; overflow-y: auto; flex: 1; }
@@ -666,6 +703,7 @@
     <div class="np-row" id="npRow">
       <!-- Cover (top-left) -->
       <div class="np-cover-wrap">
+        <canvas class="np-cover-ambient" id="npCoverAmbient" width="4" height="4"></canvas>
         <div class="np-cover" id="npCover">
           <div class="ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></div>
         </div>
@@ -694,7 +732,7 @@
         <div class="np-track-info" id="npTrackInfo">
           <div class="np-track-title" id="npTrackTitle"></div>
           <div class="np-track-artist" id="npTrackArtist"></div>
-          <div class="np-track-album" id="npTrackAlbum"></div>
+          <div class="np-track-meta" id="npTrackMeta"></div>
         </div>
       </div>
     </div><!-- end np-row -->
@@ -756,7 +794,10 @@
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;min-height:32px;flex-shrink:0;">
         <h2 style="font-size:0.9rem;font-weight:600;color:var(--text-muted);">Equalizer</h2>
       </div>
-      <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;flex:1;min-height:120px;gap:6px;padding:0 10px;"></div>
+      <div style="position:relative;flex:1;min-height:120px;display:flex;">
+        <canvas id="eqWaveCanvas" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.15;pointer-events:none;z-index:0;"></canvas>
+        <div id="eqSliders" style="display:flex;align-items:flex-end;justify-content:space-between;flex:1;gap:6px;padding:0 10px;position:relative;z-index:1;"></div>
+      </div>
       <div id="eqLabels" style="display:flex;justify-content:space-between;padding:6px 10px 0;font-size:0.62rem;color:var(--text-dim);flex-shrink:0;"></div>
       <div style="margin-top:16px;text-align:center;flex-shrink:0;">
         <select id="eqPreset" class="genre-select" style="max-width:160px;">
@@ -1221,10 +1262,11 @@ function appendRemoteQueueBatch(list, sci) {
   var html = '';
   for (var i = remoteQueueRendered; i < end; i++) {
     var t = remoteQueueData[i];
+    var realIdx = t.qindex != null ? t.qindex : i;
     var coverHtml = t.hasCover
       ? '<div class="track-cover"><img src="/api/cover/' + t.id + '" loading="lazy"></div>'
       : '<div class="track-cover"><div class="ph">' + PLACEHOLDER_SVG + '</div></div>';
-    html += '<div class="track-item ' + (i === sci ? 'playing' : '') + '" data-rindex="' + i + '">' +
+    html += '<div class="track-item ' + (realIdx === sci ? 'playing' : '') + '" data-rindex="' + realIdx + '">' +
       coverHtml +
       '<div class="track-info"><div class="track-title">' + esc(t.title) + '</div><div class="track-artist">' + esc(t.artist) + '</div></div>' +
       (t.genre ? '<span class="track-genre" style="' + getGenreStyle(t.genre) + '">' + esc(t.genre) + '</span>' : '') +
@@ -1262,7 +1304,10 @@ function renderQueue() {
     if (newHash === lastQueueHash) {
       // Just update highlight
       var items = list.querySelectorAll('.track-item');
-      items.forEach(function(el, i) { el.classList.toggle('playing', i === sci); });
+      items.forEach(function(el) {
+        var ri = parseInt(el.dataset.rindex);
+        el.classList.toggle('playing', ri === sci);
+      });
       return;
     }
     lastQueueHash = newHash;
@@ -1396,10 +1441,27 @@ document.querySelectorAll('.lib-view-btn').forEach(function(btn) {
     document.getElementById('trackList').style.display = currentLibView === 'tracks' ? '' : 'none';
     document.getElementById('albumList').style.display = currentLibView === 'albums' ? '' : 'none';
     document.getElementById('artistList').style.display = currentLibView === 'artists' ? '' : 'none';
+    // Hide duration sort options for Albums/Artists views (makes no sense)
+    updateSortOptions();
     // Apply current filters/sort to the new view
     applyFilters();
   });
 });
+
+function updateSortOptions() {
+  var sel = document.getElementById('sortSelect');
+  var opts = sel.querySelectorAll('option');
+  opts.forEach(function(o) {
+    if (o.value === 'duration' || o.value === 'duration-desc') {
+      o.style.display = currentLibView === 'tracks' ? '' : 'none';
+      o.disabled = currentLibView !== 'tracks';
+    }
+  });
+  // If current selection is now hidden, reset to title
+  if ((sel.value === 'duration' || sel.value === 'duration-desc') && currentLibView !== 'tracks') {
+    sel.value = 'title';
+  }
+}
 
 function renderAlbums() {
   var list = document.getElementById('albumList');
@@ -1699,8 +1761,11 @@ function updateNowPlayingHero() {
     var cover = document.getElementById('npCover');
     if (track && track.hasCover && trackId != null) {
       cover.innerHTML = '<img src="/api/cover/' + trackId + '">';
+      // Ambient background: extract cover colors
+      updateCoverAmbient('/api/cover/' + trackId);
     } else {
       cover.innerHTML = HERO_PH;
+      clearCoverAmbient();
     }
   }
 }
@@ -1744,7 +1809,28 @@ function playCurrentTrack() {
   // Update Now Playing track info overlay
   document.getElementById('npTrackTitle').textContent = track ? track.title : '';
   document.getElementById('npTrackArtist').textContent = track ? track.artist : '';
-  document.getElementById('npTrackAlbum').textContent = track && track.album ? track.album : '';
+  // Build meta line: album (if real) + albumArtist (only if album exists) + year + genre tag
+  var metaEl = document.getElementById('npTrackMeta');
+  if (track) {
+    var parts = [];
+    var album = track.album && track.album !== 'Unknown' ? track.album : '';
+    var albumArtist = track.albumArtist || '';
+    if (album) {
+      var albumStr = album;
+      if (albumArtist && albumArtist !== track.artist) albumStr += ' — ' + albumArtist;
+      if (track.year) albumStr += ' (' + track.year + ')';
+      parts.push('<span style="font-style:italic;">' + esc(albumStr) + '</span>');
+    } else if (track.year) {
+      parts.push('<span>' + track.year + '</span>');
+    }
+    if (track.genre) {
+      var gs = getGenreStyle(track.genre);
+      parts.push('<span class="np-genre-tag" style="' + gs + '">' + esc(track.genre) + '</span>');
+    }
+    metaEl.innerHTML = parts.join('');
+  } else {
+    metaEl.innerHTML = '';
+  }
 
   var cover = document.getElementById('playerCover');
   if (track && track.hasCover) {
@@ -2054,10 +2140,39 @@ document.addEventListener('keydown', function(e) {
   if (e.code === 'ArrowLeft') document.getElementById('prevBtn').click();
 });
 
+// ─── Cover Ambient Background ────────────────────────────────────────────────
+var ambientCanvas = document.getElementById('npCoverAmbient');
+var ambientCtx = ambientCanvas ? ambientCanvas.getContext('2d') : null;
+
+function updateCoverAmbient(coverUrl) {
+  if (!ambientCtx) return;
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function() {
+    // Draw tiny version to extract colors
+    ambientCanvas.width = 4;
+    ambientCanvas.height = 4;
+    ambientCtx.drawImage(img, 0, 0, 4, 4);
+    ambientCanvas.style.opacity = '1';
+    // Scale up via CSS for the blur effect
+    ambientCanvas.style.width = '100%';
+    ambientCanvas.style.height = '100%';
+  };
+  img.src = coverUrl;
+}
+
+function clearCoverAmbient() {
+  if (!ambientCtx) return;
+  ambientCtx.clearRect(0, 0, 4, 4);
+  ambientCanvas.style.opacity = '0';
+}
+
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 var vizContainer = document.getElementById('vizContainer');
 var vizCanvas = document.getElementById('vizCanvas');
 var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'drift';
+// Set active class to match default vizVisible=true (canvas visible)
+vizContainer.classList.add('active');
 
 function initViz() {
   if (vizInitialized) return;
@@ -2103,6 +2218,9 @@ document.getElementById('vizCloseItem').addEventListener('click', function(e) {
   var npRow = document.getElementById('npRow');
   var dragging = false;
   if (!vresizer || !npRow) return;
+  // Restore saved position or default to cover-max height
+  var savedPct = localStorage.getItem('gb-viz-height');
+  if (savedPct) { npRow.style.flex = 'none'; npRow.style.height = savedPct + '%'; }
   vresizer.addEventListener('mousedown', function(e) {
     e.preventDefault(); dragging = true; vresizer.classList.add('active');
     document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
@@ -2118,7 +2236,13 @@ document.getElementById('vizCloseItem').addEventListener('click', function(e) {
     if (viz) viz.resize();
   });
   document.addEventListener('mouseup', function() {
-    if (dragging) { dragging = false; vresizer.classList.remove('active'); document.body.style.cursor = ''; document.body.style.userSelect = ''; }
+    if (dragging) {
+      dragging = false; vresizer.classList.remove('active');
+      document.body.style.cursor = ''; document.body.style.userSelect = '';
+      // Persist position
+      var h = parseFloat(npRow.style.height);
+      if (h) localStorage.setItem('gb-viz-height', h);
+    }
   });
 })();
 
@@ -2312,6 +2436,7 @@ if (isDesktop) {
   window.resonance.getConfig().then(function(cfg) {
     window._appConfig = cfg;
     if (cfg.vizEnabled === false) { vizVisible = false; document.getElementById('vizContainer').classList.remove('active'); }
+    else { vizVisible = true; document.getElementById('vizContainer').classList.add('active'); }
     if (cfg.vizMode) { vizMode = cfg.vizMode; if (viz) viz.setMode(vizMode); }
     if (cfg.volume != null) { audio.volume = cfg.volume; document.getElementById('volumeSlider').value = cfg.volume; }
     if (cfg.hue != null) { document.documentElement.style.setProperty('--hue', cfg.hue); }
@@ -2378,13 +2503,14 @@ if (isDesktop) {
   // Post full queue to server (only when queue content changes)
   var lastQueueSent = '';
   function broadcastDesktopQueue() {
-    var sig = queue.length + ':' + (queue[0] || '') + ':' + (queue[queue.length-1] || '');
+    var sig = queue.length + ':' + currentIndex + ':' + (queue[0] || '') + ':' + (queue[queue.length-1] || '');
     if (sig === lastQueueSent) return;
     lastQueueSent = sig;
-    var queueData = queue.map(function(id) {
-      var t = getTrack(id);
-      return t ? { id: t.id, title: t.title, artist: t.artist, hasCover: t.hasCover, duration: t.duration, genre: t.genre } : null;
-    }).filter(Boolean);
+    var queueData = [];
+    for (var qi = 0; qi < queue.length; qi++) {
+      var t = getTrack(queue[qi]);
+      if (t) queueData.push({ id: t.id, title: t.title, artist: t.artist, album: t.album, albumArtist: t.albumArtist, year: t.year, hasCover: t.hasCover, duration: t.duration, genre: t.genre, qindex: qi });
+    }
     fetch('/api/desktop/queue', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(queueData) }).catch(function(){});
   }
 
@@ -2451,7 +2577,8 @@ function fetchUsers() {
     var USER_COLORS = ['#e8a435','#b68adf','#7ac47a','#5ba8e8','#e06b9f','#4dd4ac','#c47a7a','#8b5cf6'];
     list.innerHTML = users.map(function(u, i) {
       var color = USER_COLORS[i % USER_COLORS.length];
-      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">' +
+      var isLast = i === users.length - 1;
+      return '<div style="display:flex;align-items:center;gap:12px;padding:10px 0;' + (isLast ? '' : 'border-bottom:1px solid var(--border);') + '">' +
         '<div style="width:36px;height:36px;border-radius:50%;background:' + color + ';display:flex;align-items:center;justify-content:center;font-size:0.85rem;font-weight:700;color:#0a0a0b;">' + u.name.charAt(0).toUpperCase() + '</div>' +
         '<div><div style="font-size:0.85rem;font-weight:500;">' + u.name + '</div><div style="font-size:0.7rem;color:var(--text-dim);">Connected ' + new Date(u.connectedAt).toLocaleTimeString() + '</div></div>' +
       '</div>';
@@ -2603,7 +2730,39 @@ document.getElementById('eqPreset').addEventListener('change', function() {
 document.querySelector('[data-tab="eq"]').addEventListener('click', function() {
   initEQ();
   renderEQ();
+  startEqWave();
 });
+
+// EQ live frequency wave background
+var eqWaveAnimFrame = null;
+function startEqWave() {
+  if (eqWaveAnimFrame) return;
+  var canvas = document.getElementById('eqWaveCanvas');
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  function drawEqWave() {
+    if (!document.getElementById('panel-eq').classList.contains('active')) {
+      eqWaveAnimFrame = null; return;
+    }
+    var w = canvas.offsetWidth, h = canvas.offsetHeight;
+    if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+    ctx.clearRect(0, 0, w, h);
+    if (viz && viz.analyser) {
+      var bufLen = viz.analyser.frequencyBinCount;
+      var data = new Uint8Array(bufLen);
+      viz.analyser.getByteFrequencyData(data);
+      // Draw bars (input signal)
+      var barW = w / bufLen;
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#e8a435';
+      for (var i = 0; i < bufLen; i++) {
+        var bh = (data[i] / 255) * h;
+        ctx.fillRect(i * barW, h - bh, barW * 0.8, bh);
+      }
+    }
+    eqWaveAnimFrame = requestAnimationFrame(drawEqWave);
+  }
+  drawEqWave();
+}
 
 function fetchStats() {
   fetch('/api/stats').then(function(r){ return r.json(); }).then(function(s) {
@@ -2797,7 +2956,10 @@ function remoteAddToQueue(trackId) {
         // Only update highlight (not full re-render — queue fetched separately)
         if (prevState && prevState.currentIndex !== msg.data.currentIndex) {
           var items = document.getElementById('queueList').querySelectorAll('.track-item');
-          items.forEach(function(el, i) { el.classList.toggle('playing', i === msg.data.currentIndex); });
+          items.forEach(function(el) {
+            var ri = parseInt(el.dataset.rindex);
+            el.classList.toggle('playing', ri === msg.data.currentIndex);
+          });
         }
       }
     }

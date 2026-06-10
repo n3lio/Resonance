@@ -242,7 +242,9 @@ async function scanDirectory(dir, excludeFolders) {
           filename: entry.name,
           title: metadata.common.title || entry.name.replace(/\.[^/.]+$/, ''),
           artist: metadata.common.artist || 'Unknown',
-          album: metadata.common.album || 'Unknown',
+          albumArtist: metadata.common.albumartist || '',
+          album: metadata.common.album || '',
+          year: metadata.common.year || null,
           duration: metadata.format.duration || 0,
           genre: genre,
           hasCover,
@@ -254,7 +256,9 @@ async function scanDirectory(dir, excludeFolders) {
           filename: entry.name,
           title: entry.name.replace(/\.[^/.]+$/, ''),
           artist: 'Unknown',
-          album: 'Unknown',
+          albumArtist: '',
+          album: '',
+          year: null,
           duration: 0,
           genre: null,
           hasCover: false,
@@ -850,26 +854,32 @@ function startServer(port) {
         scanFolders().catch(console.error);
       }
 
-      // File watcher
+      // File watcher — only react to actual file additions/deletions (rename events)
       if (config.watchForChanges) {
         let rescanTimeout = null;
+        let lastScanTime = Date.now();
         for (const folder of config.musicFolders) {
           const resolved = path.resolve(folder);
           if (!fs.existsSync(resolved)) continue;
           try {
             fs.watch(resolved, { recursive: true }, (eventType, filename) => {
+              // Only react to 'rename' events (file added/removed), not 'change' (metadata/content edits)
+              if (eventType !== 'rename') return;
               if (!filename) return;
               const ext = path.extname(filename).toLowerCase();
               if (!AUDIO_EXTENSIONS.has(ext)) return;
               const parts = filename.split(path.sep);
               const excl = new Set((config.excludeFolders || []).map(f => f.toLowerCase()));
               if (parts.some(p => excl.has(p.toLowerCase()))) return;
+              // Don't rescan if we scanned less than 30s ago (avoids cascade)
+              if (Date.now() - lastScanTime < 30000) return;
               clearTimeout(rescanTimeout);
               rescanTimeout = setTimeout(async () => {
-                console.log('Changes detected, rescanning...');
+                console.log('File added/removed, rescanning...');
+                lastScanTime = Date.now();
                 await scanFolders();
                 broadcast({ type: 'library-updated', data: { count: library.length } });
-              }, 2000);
+              }, 5000);
             });
           } catch (e) {
             console.warn(`Could not watch: ${resolved}`, e.message);
