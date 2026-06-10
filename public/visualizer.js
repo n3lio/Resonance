@@ -22,6 +22,7 @@ class Visualizer {
     this.particles = [];
     this.trackTitle = '';
     this.trackArtist = '';
+    this.coverColors = null;
     this.initStars();
     this.initParticles();
     this.resize();
@@ -59,6 +60,28 @@ class Visualizer {
   stop() { this.running = false; if (this.animId) cancelAnimationFrame(this.animId); this.clear(); }
   setMode(m) { this.mode = m; if (m === 'starfield') this.initStars(); if (m === 'glow') this.initParticles(); }
   setTrack(t, a) { this.trackTitle = t || ''; this.trackArtist = a || ''; }
+
+  // Extract dominant colors from cover image
+  setCoverColors(coverUrl) {
+    if (!coverUrl) { this.coverColors = null; return; }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = 8; c.height = 8;
+      const cx = c.getContext('2d');
+      cx.drawImage(img, 0, 0, 8, 8);
+      const data = cx.getImageData(0, 0, 8, 8).data;
+      // Sample corners + center for palette
+      const samples = [0, 7, 56, 63, 27, 36]; // pixel indices
+      const colors = samples.map(i => {
+        const idx = i * 4;
+        return [data[idx], data[idx+1], data[idx+2]];
+      }).filter(c => (c[0]+c[1]+c[2]) > 30 && (c[0]+c[1]+c[2]) < 720); // skip pure black/white
+      this.coverColors = colors.length >= 2 ? colors : null;
+    };
+    img.src = coverUrl;
+  }
   clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
 
   // Theme hue from CSS
@@ -82,7 +105,7 @@ class Visualizer {
       case 'starfield': this.drawStarfield(); break;
       case 'spectrum': this.drawSpectrum(); break;
       case 'glow': this.drawGlow(); break;
-      case 'aurora': this.drawAurora(); break;
+      case 'coverdrift': this.drawCoverDrift(); break;
       case 'bars': this.drawBars(); break;
       case 'circular': this.drawCircular(); break;
       case 'lyrics': this.drawLyrics(); break;
@@ -262,46 +285,68 @@ class Visualizer {
     }
   }
 
-  // ─── AURORA (theme-aware, dramatic) ───────────────────────────────────────
-  drawAurora() {
-    const {ctx,w,h}=this;
+  // ─── COVER DRIFT (Drift colored by cover palette) ──────────────────────────
+  drawCoverDrift() {
+    const {ctx,w,h,dataArray}=this;
+    const bass=this.boost(this.getAvg(0,6));
+    const mid=this.boost(this.getAvg(8,20));
+    const high=this.boost(this.getAvg(24,50));
+    const t=this.frame*0.01;
+    const colors=this.coverColors;
+
+    // Use cover colors or fallback to theme hue
     const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,6),0.5);
-    const mid=this.boost(this.getAvg(8,20),0.5);
-    const high=this.boost(this.getAvg(24,50),0.5);
-    const t=this.frame*0.015;
+    const c1=colors&&colors[0]?colors[0]:[...this.hslToRgb(hue/360,0.8,0.55)];
+    const c2=colors&&colors[1]?colors[1]:[...this.hslToRgb((hue+140)/360,0.7,0.5)];
+    const c3=colors&&colors[2]?colors[2]:[...this.hslToRgb((hue+260)/360,0.6,0.45)];
 
-    ctx.fillStyle=`rgba(5,5,8,${0.05+(1-bass)*0.04})`;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle=`rgba(10,10,11,${0.04+(1-bass)*0.04})`;
+    ctx.fillRect(0,0,w,h);
 
-    const bands=[
-      {bh:hue,yBase:0.15,amp:0.08+bass*0.4,speed:0.8,alpha:0.08+bass*0.45,thick:0.25},
-      {bh:hue+60,yBase:0.3,amp:0.06+mid*0.35,speed:1.2,alpha:0.06+mid*0.35,thick:0.2},
-      {bh:hue+140,yBase:0.45,amp:0.05+high*0.3,speed:0.6,alpha:0.05+high*0.28,thick:0.18},
-      {bh:hue+200,yBase:0.1,amp:0.04+bass*0.25,speed:1.6,alpha:0.04+mid*0.18,thick:0.15},
-      {bh:hue+280,yBase:0.55,amp:0.03+high*0.22,speed:1.0,alpha:0.03+bass*0.14,thick:0.12},
+    // Nebula layers colored by cover
+    const layers=[
+      {cx:0.3+Math.sin(t*0.7)*0.15,cy:0.4+Math.cos(t*0.5)*0.15,r:0.35+bass*0.5,c:c1,alpha:0.05+bass*0.2},
+      {cx:0.7+Math.cos(t*0.6)*0.12,cy:0.55+Math.sin(t*0.8)*0.12,r:0.3+mid*0.4,c:c2,alpha:0.04+mid*0.16},
+      {cx:0.5+Math.sin(t*0.9)*0.14,cy:0.35+Math.cos(t*0.4)*0.12,r:0.25+high*0.35,c:c3,alpha:0.03+high*0.12},
     ];
-
-    for(const b of bands){
-      ctx.beginPath();ctx.moveTo(0,h);
-      for(let x=0;x<=w;x+=2){
-        const nx=x/w;
-        const wave=Math.sin(nx*6+t*b.speed)*b.amp+Math.sin(nx*10+t*b.speed*0.7)*b.amp*0.5+Math.sin(nx*3.5+t*b.speed*1.5)*b.amp*0.4+Math.sin(nx*15+t*b.speed*0.4)*b.amp*0.2;
-        ctx.lineTo(x,(b.yBase+wave)*h);
-      }
-      ctx.lineTo(w,(b.yBase+b.thick)*h);
-      for(let x=w;x>=0;x-=2){
-        const nx=x/w;
-        const wave=Math.sin(nx*6+t*b.speed)*b.amp*0.3+Math.sin(nx*10+t*b.speed*0.7)*b.amp*0.2;
-        ctx.lineTo(x,(b.yBase+b.thick+wave*0.5)*h);
-      }
-      ctx.closePath();
-      const grad=ctx.createLinearGradient(0,(b.yBase-0.1)*h,0,(b.yBase+b.thick+0.1)*h);
-      grad.addColorStop(0,'transparent');
-      grad.addColorStop(0.3,`hsla(${b.bh},85%,60%,${b.alpha})`);
-      grad.addColorStop(0.6,`hsla(${b.bh+10},80%,55%,${b.alpha*0.8})`);
-      grad.addColorStop(1,'transparent');
-      ctx.fillStyle=grad;ctx.fill();
+    for(const l of layers){
+      const g=ctx.createRadialGradient(l.cx*w,l.cy*h,0,l.cx*w,l.cy*h,l.r*w);
+      g.addColorStop(0,`rgba(${l.c[0]},${l.c[1]},${l.c[2]},${l.alpha})`);
+      g.addColorStop(0.4,`rgba(${l.c[0]},${l.c[1]},${l.c[2]},${l.alpha*0.5})`);
+      g.addColorStop(1,'transparent');
+      ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
     }
+    if(bass>0.6){ctx.fillStyle=`rgba(${c1[0]},${c1[1]},${c1[2]},${(bass-0.6)*0.15})`;ctx.fillRect(0,0,w,h);}
+
+    // Wave overlay using cover colors
+    if(dataArray){
+      const waveLayers=[
+        {lw:6,alpha:0.08+bass*0.12,c:c1},
+        {lw:2.5,alpha:0.3+bass*0.4,c:c2},
+        {lw:1.2,alpha:0.6+bass*0.4,c:null},
+      ];
+      waveLayers.forEach(({lw,alpha,c})=>{
+        ctx.beginPath();ctx.lineWidth=lw;
+        ctx.strokeStyle=c?`rgba(${c[0]},${c[1]},${c[2]},${alpha})`:`rgba(240,235,228,${alpha})`;
+        ctx.shadowColor=c?`rgba(${c[0]},${c[1]},${c[2]},${0.3+bass*0.5})`:`rgba(240,235,228,${0.2+bass*0.3})`;
+        ctx.shadowBlur=lw*3;
+        const sl=w/dataArray.length;let x=0;
+        for(let i=0;i<dataArray.length;i++){const v=dataArray[i]/128;ctx.lineTo(x,(v*h)/2);x+=sl;}
+        ctx.stroke();
+      });
+      ctx.shadowBlur=0;
+    }
+  }
+
+  // Helper: HSL (0-1) to RGB (0-255)
+  hslToRgb(h,s,l){
+    let r,g,b;
+    if(s===0){r=g=b=l;}else{
+      const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+      const q=l<0.5?l*(1+s):l+s-l*s;const p=2*l-q;
+      r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);
+    }
+    return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
   }
 
   // ─── BARS ─────────────────────────────────────────────────────────────────
@@ -352,40 +397,82 @@ class Visualizer {
     ctx.fillStyle=`rgba(255,240,220,${0.5+bass*0.5})`;ctx.fill();
   }
 
-  // ─── LYRICS — massive floating text ───────────────────────────────────────
+  // ─── LYRICS — kinetic typography with glow ─────────────────────────────────
   drawLyrics() {
     const {ctx,w,h}=this;
     const hue=this.getHue();
     const bass=this.boost(this.getAvg(0,6));
     const mid=this.boost(this.getAvg(8,20));
+    const high=this.boost(this.getAvg(24,50));
     const t=this.frame;
 
-    ctx.fillStyle='rgba(10,10,11,0.04)';ctx.fillRect(0,0,w,h);
+    // Fade trail — slower fade for ghosting effect
+    ctx.fillStyle=`rgba(10,10,11,${0.025+bass*0.02})`;ctx.fillRect(0,0,w,h);
 
-    const title=(this.trackTitle||'RESONANCE').toUpperCase();
+    const title=(this.trackTitle||'GHETTO BLASTER').toUpperCase();
     const artist=(this.trackArtist||'').toUpperCase();
 
-    // Layer 1: Title — MASSIVE, slow horizontal drift
-    const fontSize1=Math.max(w*0.5,80);
-    ctx.font=`900 ${fontSize1}px sans-serif`;
-    ctx.fillStyle=`hsla(${hue},75%,55%,${0.12+bass*0.2})`;
+    // Bass pulse flash
+    if(bass>0.75){
+      ctx.fillStyle=`hsla(${hue},80%,55%,${(bass-0.75)*0.08})`;
+      ctx.fillRect(0,0,w,h);
+    }
+
+    // Layer 1: Title — MASSIVE, fills width, slow crawl, pulsing opacity
+    const fontSize1=Math.min(w*0.6, h*0.7);
+    ctx.font=`900 ${fontSize1}px system-ui, sans-serif`;
     const textW1=ctx.measureText(title).width;
-    const tx1=((t*0.4)%(textW1+w))-textW1;
-    const ty1=h*0.5+Math.sin(t*0.003)*h*0.02;
+    const scale1=Math.min(1, (w*2.5)/textW1); // ensure it's readable
+    const actualSize1=fontSize1*scale1;
+    ctx.font=`900 ${actualSize1}px system-ui, sans-serif`;
+    const measuredW1=ctx.measureText(title).width;
+
+    // Scrolling title
+    const speed1=0.3+bass*0.5;
+    const tx1=w-((t*speed1)%(measuredW1+w));
+    const ty1=h*0.45+Math.sin(t*0.005)*h*0.03;
+
+    // Glow layer
+    ctx.shadowColor=`hsla(${hue},85%,55%,${0.4+bass*0.5})`;
+    ctx.shadowBlur=20+bass*40;
+    ctx.fillStyle=`hsla(${hue},80%,60%,${0.06+bass*0.18})`;
     ctx.fillText(title,tx1,ty1);
 
-    // Layer 2: Artist — large, opposite direction, blurred
+    // Sharp layer on top
+    ctx.shadowBlur=0;
+    ctx.fillStyle=`hsla(${hue},70%,80%,${0.15+bass*0.35})`;
+    ctx.fillText(title,tx1,ty1);
+
+    // Layer 2: Artist — opposite direction, smaller, different hue
     if(artist){
-      const fontSize2=Math.max(w*0.3,50);
-      ctx.font=`800 ${fontSize2}px sans-serif`;
-      ctx.fillStyle=`hsla(${hue+40},65%,50%,${0.08+mid*0.15})`;
-      ctx.filter=`blur(${3+bass*4}px)`;
+      const fontSize2=actualSize1*0.45;
+      ctx.font=`700 ${fontSize2}px system-ui, sans-serif`;
       const textW2=ctx.measureText(artist).width;
-      const tx2=w-((t*0.6)%(textW2+w));
-      const ty2=h*0.75+Math.cos(t*0.004)*h*0.02;
+      const speed2=0.5+mid*0.4;
+      const tx2=((t*speed2)%(textW2+w))-textW2;
+      const ty2=h*0.72+Math.cos(t*0.004)*h*0.02;
+
+      ctx.shadowColor=`hsla(${hue+180},70%,55%,${0.3+mid*0.4})`;
+      ctx.shadowBlur=12+mid*20;
+      ctx.fillStyle=`hsla(${hue+180},60%,65%,${0.05+mid*0.15})`;
       ctx.fillText(artist,tx2,ty2);
-      ctx.filter='none';
+
+      ctx.shadowBlur=0;
+      ctx.fillStyle=`hsla(${hue+180},50%,75%,${0.12+mid*0.25})`;
+      ctx.fillText(artist,tx2,ty2);
     }
+
+    // Layer 3: Scattered letters (small, high-freq reactive)
+    if(high>0.3 && title.length>2){
+      const letter=title[Math.floor((t*0.1)%title.length)];
+      const sz=20+high*60;
+      ctx.font=`900 ${sz}px system-ui, sans-serif`;
+      const lx=Math.abs(Math.sin(t*0.017))*w*0.8+w*0.1;
+      const ly=Math.abs(Math.cos(t*0.013))*h*0.6+h*0.2;
+      ctx.fillStyle=`hsla(${hue+90},60%,70%,${(high-0.3)*0.3})`;
+      ctx.fillText(letter,lx,ly);
+    }
+    ctx.shadowBlur=0;
   }
 }
 
