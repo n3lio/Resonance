@@ -1029,6 +1029,18 @@
       </div>
     </div>
 
+    <div class="settings-section" id="settingsUpdatesSection">
+      <h4>Updates</h4>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:0.78rem;color:var(--text-muted);" id="settingsVersionLabel">v—</span>
+        <span id="settingsUpdateStatus" style="font-size:0.7rem;padding:3px 9px;border-radius:12px;border:1px solid var(--border);color:var(--text-dim);"></span>
+      </div>
+      <div id="settingsUpdateActions" style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button id="settingsCheckUpdate" class="add-folder-btn" style="margin-top:0;">Check for updates</button>
+        <a href="https://github.com/n3lio/Ghetto-Blaster/releases" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:4px;font-size:0.72rem;color:var(--text-muted);text-decoration:none;padding:7px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);transition:all 0.2s;">GitHub Releases ↗</a>
+      </div>
+    </div>
+
     </div><!-- end modal-body -->
     <div class="modal-actions">
       <button id="settingsCancel">Cancel</button>
@@ -2313,6 +2325,51 @@ document.getElementById('settingsBtn').addEventListener('click', openSettings);
 document.getElementById('settingsCancel').addEventListener('click', function() { settingsModal.classList.remove('open'); });
 settingsModal.addEventListener('click', function(e) { if (e.target === settingsModal) settingsModal.classList.remove('open'); });
 
+// ─── Update State (global, syncs badge + Settings section) ──────────────────
+window._updateState = { status: 'checking', version: null, percent: null };
+
+function syncSettingsUpdate() {
+  var label = document.getElementById('settingsUpdateStatus');
+  if (!label) return;
+  var st = window._updateState;
+  if (st.status === 'available') {
+    label.textContent = 'v' + st.version + ' available';
+    label.style.color = 'var(--green)'; label.style.borderColor = 'var(--green)';
+  } else if (st.status === 'downloading') {
+    label.textContent = 'Downloading…' + (st.percent ? ' ' + st.percent + '%' : '');
+    label.style.color = 'var(--accent)'; label.style.borderColor = 'var(--accent)';
+  } else if (st.status === 'ready') {
+    label.textContent = 'v' + st.version + ' ready to install';
+    label.style.color = 'var(--accent)'; label.style.borderColor = 'var(--accent)';
+  } else if (st.status === 'error') {
+    label.textContent = 'Update failed — retry?';
+    label.style.color = 'var(--red)'; label.style.borderColor = 'var(--red)';
+  } else if (st.status === 'uptodate') {
+    label.textContent = 'Up to date';
+    label.style.color = 'var(--text-dim)'; label.style.borderColor = 'var(--border)';
+  } else {
+    label.textContent = '';
+  }
+}
+
+function setBadgeStyle(badge, type) {
+  badge.style.display = 'inline';
+  if (type === 'available') { badge.style.color = 'var(--green)'; badge.style.borderColor = 'var(--green)'; badge.style.background = 'rgba(122,196,122,0.1)'; }
+  else if (type === 'downloading') { badge.style.color = 'var(--accent)'; badge.style.borderColor = 'var(--accent)'; badge.style.background = 'rgba(232,164,53,0.1)'; }
+  else if (type === 'ready') { badge.style.color = 'var(--accent)'; badge.style.borderColor = 'var(--accent)'; badge.style.background = 'var(--accent-subtle)'; }
+  else if (type === 'error') { badge.style.color = 'var(--red)'; badge.style.borderColor = 'var(--red)'; badge.style.background = 'rgba(224,85,85,0.1)'; }
+}
+
+function triggerDownload() {
+  var badge = document.getElementById('updateBadge');
+  badge.textContent = 'downloading…';
+  setBadgeStyle(badge, 'downloading');
+  badge.onclick = null; badge.style.cursor = 'default';
+  window._updateState.status = 'downloading';
+  syncSettingsUpdate();
+  window.resonance.downloadUpdate();
+}
+
 async function openSettings() {
   if (window.resonance) {
     var cfg = await window.resonance.getConfig();
@@ -2341,6 +2398,9 @@ async function openSettings() {
     document.getElementById('crossfadeDuration').style.display = cfg.crossfade ? 'block' : 'none';
     var ver = await window.resonance.getVersion();
     document.getElementById('aboutVersion').textContent = 'v' + ver;
+    document.getElementById('settingsVersionLabel').textContent = 'v' + ver;
+    document.getElementById('settingsUpdatesSection').style.display = '';
+    syncSettingsUpdate();
 
     // Generate QR code for mobile access (via server API)
     var qrContainer = document.getElementById('qrCode');
@@ -2362,6 +2422,7 @@ async function openSettings() {
   } else {
     settingsFolders = [];
     document.getElementById('aboutVersion').textContent = 'web mode';
+    document.getElementById('settingsUpdatesSection').style.display = 'none';
   }
   renderFolderList();
   settingsModal.classList.add('open');
@@ -2576,36 +2637,58 @@ if (isDesktop) {
   document.getElementById('refreshUsersBtn').addEventListener('click', fetchUsers);
   setInterval(function() { if (document.getElementById('panel-devices').classList.contains('active')) fetchUsers(); }, 10000);
 
-  // Updates — user-confirmed: show available → click to download → progress → install
+  // Updates — wire IPC events to global state + badge
   window.resonance.onUpdateAvailable(function(d) {
     var badge = document.getElementById('updateBadge');
+    window._updateState = { status: 'available', version: d.version };
     badge.textContent = 'v' + d.version + ' available';
-    badge.style.display = 'inline';
-    badge.onclick = function() {
-      badge.textContent = 'downloading…';
-      badge.onclick = null;
-      window.resonance.downloadUpdate();
-    };
+    setBadgeStyle(badge, 'available');
+    badge.style.cursor = 'pointer';
+    badge.onclick = triggerDownload;
+    syncSettingsUpdate();
   });
   window.resonance.onUpdateProgress(function(d) {
     var badge = document.getElementById('updateBadge');
     badge.textContent = 'downloading… ' + d.percent + '%';
+    window._updateState.status = 'downloading';
+    window._updateState.percent = d.percent;
+    syncSettingsUpdate();
   });
   window.resonance.onUpdateDownloaded(function(d) {
     var badge = document.getElementById('updateBadge');
+    window._updateState = { status: 'ready', version: d.version };
     badge.textContent = 'v' + d.version + ' ready — click to install';
-    badge.style.display = 'inline';
-    badge.style.color = 'var(--accent)';
-    badge.style.borderColor = 'var(--accent)';
-    badge.style.background = 'var(--accent-subtle)';
+    setBadgeStyle(badge, 'ready');
+    badge.style.cursor = 'pointer';
     badge.onclick = function() { window.resonance.restartToUpdate(); };
+    syncSettingsUpdate();
   });
   window.resonance.onUpdateError(function() {
     var badge = document.getElementById('updateBadge');
-    badge.textContent = 'update failed';
-    badge.style.color = 'var(--red)';
-    badge.style.borderColor = 'var(--red)';
-    setTimeout(function() { badge.style.display = 'none'; }, 5000);
+    window._updateState.status = 'error';
+    badge.textContent = 'update error — click to retry';
+    setBadgeStyle(badge, 'error');
+    badge.style.cursor = 'pointer';
+    badge.onclick = triggerDownload;
+    syncSettingsUpdate();
+  });
+  window.resonance.onUpdateUpToDate(function() {
+    window._updateState.status = 'uptodate';
+    syncSettingsUpdate();
+  });
+
+  // Settings: Check for updates button
+  document.getElementById('settingsCheckUpdate').addEventListener('click', function() {
+    var label = document.getElementById('settingsUpdateStatus');
+    if (window._updateState.status === 'available' || window._updateState.status === 'error') {
+      triggerDownload();
+    } else if (window._updateState.status === 'ready') {
+      window.resonance.restartToUpdate();
+    } else {
+      label.textContent = 'Checking…';
+      label.style.color = 'var(--text-dim)'; label.style.borderColor = 'var(--border)';
+      window.resonance.checkForUpdates();
+    }
   });
 }
 

@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('resonance', {
   getVersion: () => ipcRenderer.invoke('app:version'),
   downloadUpdate: () => ipcRenderer.invoke('app:download-update'),
   restartToUpdate: () => ipcRenderer.invoke('app:restart-update'),
+  checkForUpdates: () => ipcRenderer.invoke('app:check-update'),
   openBluetoothSettings: () => ipcRenderer.invoke('app:open-bt-settings'),
 
   // Events
@@ -25,6 +26,7 @@ contextBridge.exposeInMainWorld('resonance', {
   onUpdateProgress: (cb) => ipcRenderer.on('app:update-progress', (_, d) => cb(d)),
   onUpdateDownloaded: (cb) => ipcRenderer.on('app:update-downloaded', (_, d) => cb(d)),
   onUpdateError: (cb) => ipcRenderer.on('app:update-error', (_, d) => cb(d)),
+  onUpdateUpToDate: (cb) => ipcRenderer.on('app:update-uptodate', (_, d) => cb(d)),
 
   isElectron: true,
 });

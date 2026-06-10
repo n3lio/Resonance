@@ -175,6 +175,10 @@ function setupAutoUpdater() {
     notifyRenderer('app:update-available', { version: info.version });
   });
 
+  autoUpdater.on('update-not-available', () => {
+    notifyRenderer('app:update-uptodate', {});
+  });
+
   autoUpdater.on('download-progress', (progress) => {
     notifyRenderer('app:update-progress', { percent: Math.round(progress.percent) });
   });
@@ -201,6 +205,14 @@ ipcMain.handle('app:download-update', () => {
   autoUpdater.downloadUpdate();
 });
 
+// IPC: user wants to re-check for updates (from Settings)
+ipcMain.handle('app:check-update', () => {
+  autoUpdater.checkForUpdates().catch((err) => {
+    console.log('Manual update check failed:', err.message);
+    notifyRenderer('app:update-error', { message: err.message });
+  });
+});
+
 // ─── Splash Screen ──────────────────────────────────────────────────────────
 let splashWindow = null;
 
@@ -218,13 +230,13 @@ function createSplash() {
 
   const splashHtml = `data:text/html,
     <style>
-      body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:'Segoe UI',sans-serif; }
-      .splash { background:rgba(15,14,13,0.95); border-radius:16px; padding:40px 50px; text-align:center; border:1px solid rgba(232,164,53,0.2); box-shadow:0 20px 60px rgba(0,0,0,0.5); }
-      h1 { font-size:1.4rem; font-weight:700; background:linear-gradient(135deg,%23e8a435,%23c47a7a); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 0 12px; }
-      p { color:%239a918a; font-size:0.78rem; margin:0; }
-      .dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:%23e8a435; margin:0 2px; animation:pulse 1.2s infinite; }
+      body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:'DM Sans','Segoe UI',sans-serif; }
+      .splash { background:rgba(22,21,20,0.88); backdrop-filter:blur(20px) saturate(1.4); border-radius:20px; padding:44px 54px; text-align:center; border:1px solid rgba(255,255,255,0.08); box-shadow:0 24px 80px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.05); }
+      h1 { font-size:1.4rem; font-weight:700; background:linear-gradient(135deg, hsl(38,80%,56%), hsl(0,40%,63%)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 0 14px; letter-spacing:-0.02em; }
+      p { color:rgba(240,235,228,0.5); font-size:0.72rem; margin:0; }
+      .dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:hsl(38,80%,56%); margin:0 3px; animation:pulse 1.4s ease-in-out infinite; opacity:0.3; }
       .dot:nth-child(2){animation-delay:0.2s} .dot:nth-child(3){animation-delay:0.4s}
-      @keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}
+      @keyframes pulse{0%,100%{opacity:0.3;transform:scale(1)}50%{opacity:1;transform:scale(1.2)}}
     </style>
     <div class="splash">
       <h1>Ghetto Blaster</h1>
