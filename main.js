@@ -231,16 +231,18 @@ function createSplash() {
   const splashHtml = `data:text/html,
     <style>
       body { margin:0; display:flex; align-items:center; justify-content:center; height:100vh; background:transparent; font-family:'Segoe UI',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
-      .splash { background:linear-gradient(145deg, rgba(22,21,20,0.97), rgba(14,13,12,0.99)); border-radius:20px; padding:44px 54px; text-align:center; border:1px solid rgba(255,255,255,0.08); box-shadow:0 24px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06); position:relative; overflow:hidden; }
-      .splash::before { content:''; position:absolute; top:-50%25; left:-50%25; width:200%25; height:200%25; background:radial-gradient(circle at 50%25 50%25, hsla(38,80%25,56%25,0.04), transparent 60%25); pointer-events:none; }
-      h1 { font-size:1.4rem; font-weight:700; background:linear-gradient(135deg, hsl(38,80%25,56%25), hsl(0,40%25,63%25)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin:0 0 14px; letter-spacing:-0.02em; }
-      p { color:rgba(240,235,228,0.45); font-size:0.72rem; margin:0; }
-      .dot { display:inline-block; width:5px; height:5px; border-radius:50%25; background:hsl(38,80%25,56%25); margin:0 3px; animation:pulse 1.4s ease-in-out infinite; opacity:0.3; }
+      .splash { background:%230f0e0d; border-radius:20px; padding:44px 54px; text-align:center; position:relative; overflow:hidden; }
+      .splash::before { content:''; position:absolute; inset:-2px; border-radius:22px; padding:2px; background:conic-gradient(from 0deg, %23c47a7a, %23e8943a, %23e8d44a, %23f0ebe4, %23b68adf, %23c47a7a); -webkit-mask:linear-gradient(%23fff 0 0) content-box, linear-gradient(%23fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; animation:spin 4s linear infinite; opacity:0.5; }
+      @keyframes spin { to { rotate:360deg; } }
+      h1 { font-size:1.3rem; font-weight:400; color:%23f0ebe4; margin:0 0 14px; letter-spacing:-0.02em; position:relative; }
+      h1 b { font-weight:800; }
+      p { position:relative; margin:0; }
+      .dot { display:inline-block; width:4px; height:4px; border-radius:50%25; background:%23f0ebe4; margin:0 3px; animation:pulse 1.4s ease-in-out infinite; opacity:0.25; }
       .dot:nth-child(2){animation-delay:0.2s} .dot:nth-child(3){animation-delay:0.4s}
-      @keyframes pulse{0%25,100%25{opacity:0.3;transform:scale(1)}50%25{opacity:1;transform:scale(1.2)}}
+      @keyframes pulse{0%25,100%25{opacity:0.2}50%25{opacity:0.7}}
     </style>
     <div class="splash">
-      <h1>Ghetto Blaster</h1>
+      <h1>Ghetto <b>Blaster</b></h1>
       <p><span class="dot"></span><span class="dot"></span><span class="dot"></span></p>
     </div>`;
 

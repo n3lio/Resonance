@@ -108,7 +108,7 @@ class Visualizer {
       case 'coverdrift': this.drawCoverDrift(); break;
       case 'bars': this.drawBars(); break;
       case 'circular': this.drawCircular(); break;
-      case 'lyrics': this.drawLyrics(); break;
+      case 'text': this.drawText(); break;
     }
   }
 
@@ -397,82 +397,75 @@ class Visualizer {
     ctx.fillStyle=`rgba(255,240,220,${0.5+bass*0.5})`;ctx.fill();
   }
 
-  // ─── LYRICS — kinetic typography with glow ─────────────────────────────────
-  drawLyrics() {
+  // ─── TEXT — smooth scrolling typography, beat = color + glitch ──────────────
+  drawText() {
     const {ctx,w,h}=this;
     const hue=this.getHue();
     const bass=this.boost(this.getAvg(0,6));
     const mid=this.boost(this.getAvg(8,20));
-    const high=this.boost(this.getAvg(24,50));
     const t=this.frame;
 
-    // Fade trail — slower fade for ghosting effect
-    ctx.fillStyle=`rgba(10,10,11,${0.025+bass*0.02})`;ctx.fillRect(0,0,w,h);
+    // Clean fade trail
+    ctx.fillStyle='rgba(10,10,11,0.035)';ctx.fillRect(0,0,w,h);
 
     const title=(this.trackTitle||'GHETTO BLASTER').toUpperCase();
     const artist=(this.trackArtist||'').toUpperCase();
 
-    // Bass pulse flash
-    if(bass>0.75){
-      ctx.fillStyle=`hsla(${hue},80%,55%,${(bass-0.75)*0.08})`;
-      ctx.fillRect(0,0,w,h);
+    // Color shifts with music intensity
+    const energy=bass*0.6+mid*0.4;
+    const titleHue=hue+energy*60;
+    const artistHue=hue+180+mid*40;
+    const titleLightness=55+energy*25;
+    const artistLightness=50+mid*20;
+
+    // Layer 1: Title — smooth constant scroll right-to-left
+    const fontSize1=Math.min(w*0.55, h*0.65);
+    ctx.font=`900 ${fontSize1}px system-ui, sans-serif`;
+    const measuredW1=ctx.measureText(title).width;
+    const speed1=0.4; // constant speed
+    const tx1=w-((t*speed1)%(measuredW1+w));
+    const ty1=h*0.48;
+
+    // Bass glitch: blur on big hits
+    if(bass>0.8){
+      ctx.filter=`blur(${(bass-0.8)*12}px)`;
     }
 
-    // Layer 1: Title — MASSIVE, fills width, slow crawl, pulsing opacity
-    const fontSize1=Math.min(w*0.6, h*0.7);
-    ctx.font=`900 ${fontSize1}px system-ui, sans-serif`;
-    const textW1=ctx.measureText(title).width;
-    const scale1=Math.min(1, (w*2.5)/textW1); // ensure it's readable
-    const actualSize1=fontSize1*scale1;
-    ctx.font=`900 ${actualSize1}px system-ui, sans-serif`;
-    const measuredW1=ctx.measureText(title).width;
-
-    // Scrolling title
-    const speed1=0.3+bass*0.5;
-    const tx1=w-((t*speed1)%(measuredW1+w));
-    const ty1=h*0.45+Math.sin(t*0.005)*h*0.03;
-
     // Glow layer
-    ctx.shadowColor=`hsla(${hue},85%,55%,${0.4+bass*0.5})`;
-    ctx.shadowBlur=20+bass*40;
-    ctx.fillStyle=`hsla(${hue},80%,60%,${0.06+bass*0.18})`;
+    ctx.shadowColor=`hsla(${titleHue},85%,${titleLightness}%,${0.3+energy*0.4})`;
+    ctx.shadowBlur=15+energy*20;
+    ctx.fillStyle=`hsla(${titleHue},80%,${titleLightness}%,${0.08+energy*0.15})`;
     ctx.fillText(title,tx1,ty1);
 
-    // Sharp layer on top
+    // Sharp text on top
     ctx.shadowBlur=0;
-    ctx.fillStyle=`hsla(${hue},70%,80%,${0.15+bass*0.35})`;
+    ctx.filter='none';
+    ctx.fillStyle=`hsla(${titleHue},70%,${titleLightness+15}%,${0.15+energy*0.3})`;
     ctx.fillText(title,tx1,ty1);
 
-    // Layer 2: Artist — opposite direction, smaller, different hue
+    // Layer 2: Artist — smooth scroll left-to-right (opposite)
     if(artist){
-      const fontSize2=actualSize1*0.45;
+      const fontSize2=fontSize1*0.4;
       ctx.font=`700 ${fontSize2}px system-ui, sans-serif`;
-      const textW2=ctx.measureText(artist).width;
-      const speed2=0.5+mid*0.4;
-      const tx2=((t*speed2)%(textW2+w))-textW2;
-      const ty2=h*0.72+Math.cos(t*0.004)*h*0.02;
+      const measuredW2=ctx.measureText(artist).width;
+      const speed2=0.55; // constant, slightly faster
+      const tx2=((t*speed2)%(measuredW2+w))-measuredW2;
+      const ty2=h*0.72;
 
-      ctx.shadowColor=`hsla(${hue+180},70%,55%,${0.3+mid*0.4})`;
-      ctx.shadowBlur=12+mid*20;
-      ctx.fillStyle=`hsla(${hue+180},60%,65%,${0.05+mid*0.15})`;
+      if(bass>0.8){
+        ctx.filter=`blur(${(bass-0.8)*8}px)`;
+      }
+
+      ctx.shadowColor=`hsla(${artistHue},70%,${artistLightness}%,${0.2+mid*0.3})`;
+      ctx.shadowBlur=10+mid*15;
+      ctx.fillStyle=`hsla(${artistHue},60%,${artistLightness}%,${0.06+mid*0.12})`;
       ctx.fillText(artist,tx2,ty2);
 
       ctx.shadowBlur=0;
-      ctx.fillStyle=`hsla(${hue+180},50%,75%,${0.12+mid*0.25})`;
+      ctx.filter='none';
+      ctx.fillStyle=`hsla(${artistHue},50%,${artistLightness+15}%,${0.12+mid*0.22})`;
       ctx.fillText(artist,tx2,ty2);
     }
-
-    // Layer 3: Scattered letters (small, high-freq reactive)
-    if(high>0.3 && title.length>2){
-      const letter=title[Math.floor((t*0.1)%title.length)];
-      const sz=20+high*60;
-      ctx.font=`900 ${sz}px system-ui, sans-serif`;
-      const lx=Math.abs(Math.sin(t*0.017))*w*0.8+w*0.1;
-      const ly=Math.abs(Math.cos(t*0.013))*h*0.6+h*0.2;
-      ctx.fillStyle=`hsla(${hue+90},60%,70%,${(high-0.3)*0.3})`;
-      ctx.fillText(letter,lx,ly);
-    }
-    ctx.shadowBlur=0;
   }
 }
 

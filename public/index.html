@@ -93,7 +93,7 @@
     }
     header h1 {
       font-size: 1.05rem;
-      font-weight: 800;
+      font-weight: 400;
       letter-spacing: -0.02em;
       --title-end: #c47a7a;
       background: linear-gradient(135deg, var(--accent), var(--title-end));
@@ -105,6 +105,7 @@
       cursor: default;
       transition: letter-spacing 0.2s;
     }
+    header h1 b { font-weight: 800; }
     header h1:hover {
       animation: titleGlitch 0.4s steps(3) 1, titleShift 10s ease infinite;
     }
@@ -115,10 +116,10 @@
       75%      { --title-end: #f0ebe4; }
     }
     @keyframes titleGlitch {
-      0% { text-shadow: 2px 0 #c47a7a, -2px 0 #7ac4c4; transform: translate(0); }
-      33% { text-shadow: -2px 0 #e8a435, 1px 0 #b68adf; transform: translate(-1px, 1px); }
-      66% { text-shadow: 1px 0 #7ac47a, -1px 0 #e05555; transform: translate(1px, -1px); }
-      100% { text-shadow: none; transform: translate(0); }
+      0% { text-shadow: 2px 0 #c47a7a, -2px 0 #7ac4c4; }
+      33% { text-shadow: -2px 0 #e8a435, 1px 0 #b68adf; }
+      66% { text-shadow: 1px 0 #7ac47a, -1px 0 #e05555; }
+      100% { text-shadow: none; }
     }
 
     .header-right {
@@ -142,16 +143,34 @@
       background: transparent;
       cursor: pointer;
       transition: all 0.2s;
+      position: relative;
     }
     .server-pill:hover { border-color: var(--text-muted); background: var(--surface); }
     .server-pill.on { border-color: var(--green); color: var(--green); }
-    .server-pill.on:hover { background: rgba(122,196,122,0.06); border-color: var(--green); box-shadow: 0 0 12px rgba(122,196,122,0.15); }
+    .server-pill.on:hover { background: rgba(122,196,122,0.06); border-color: var(--green); }
     .server-pill .dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: var(--text-dim);
       transition: all 0.2s;
     }
     .server-pill.on .dot { background: var(--green); box-shadow: 0 0 6px rgba(122,196,122,0.5); }
+    .server-popover {
+      display: none; position: absolute; top: calc(100% + 8px); left: 0;
+      background: rgba(22,21,20,0.95); backdrop-filter: blur(16px) saturate(1.3);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 14px;
+      padding: 14px 18px; min-width: 200px; z-index: 100;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+      animation: popIn 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .server-popover.open { display: block; }
+    @keyframes popIn { from { opacity: 0; transform: translateY(-4px) scale(0.96); } to { opacity: 1; transform: none; } }
+    .sp-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+    .sp-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
+    .sp-value { font-size: 0.78rem; color: var(--text); font-weight: 500; }
+    .sp-mode { padding: 3px 9px; border-radius: 10px; font-size: 0.68rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .sp-mode.on { background: rgba(122,196,122,0.1); color: var(--green); border: 1px solid rgba(122,196,122,0.3); }
+    .sp-mode.off { background: rgba(240,235,228,0.06); color: var(--text-muted); border: 1px solid var(--border); }
+    .sp-hint { font-size: 0.66rem; color: var(--text-dim); margin: 8px 0 0; font-style: italic; }
 
     .settings-btn {
       background: none;
@@ -224,7 +243,7 @@
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
-    .toolbar input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .toolbar input:focus { border-color: var(--accent); }
 
     .genre-select {
       padding: 9px 28px 9px 12px;
@@ -244,6 +263,8 @@
       background-position: right 10px center;
       transition: all 0.2s;
     }
+    .genre-select:hover { border-color: var(--text-dim); }
+    .genre-select:focus { border-color: var(--accent); }
     .genre-select.active { border-color: var(--accent); background: var(--accent-subtle); color: var(--accent); }
 
     .toolbar-btn {
@@ -707,7 +728,7 @@
 <body>
 
 <header>
-  <h1>Ghetto Blaster</h1>
+  <h1>Ghetto <b>Blaster</b></h1>
   <span class="scan-indicator" id="scanIndicator" style="display:none;font-size:0.72rem;color:var(--accent);animation:pulse 1.2s infinite;">Scanning...</span>
   <span id="updateBadge" style="display:none;font-size:0.68rem;color:var(--green);background:rgba(122,196,122,0.1);padding:3px 8px;border-radius:12px;cursor:pointer;border:1px solid rgba(122,196,122,0.3);"></span>
   <div class="header-right">
@@ -719,6 +740,12 @@
       <span class="dot"></span>
       <span class="server-label">Online</span>
     </span>
+    <div class="server-popover" id="serverPopover">
+      <div class="sp-row"><span class="sp-label">LAN</span><span class="sp-value" id="spAddr">—</span></div>
+      <div class="sp-row"><span class="sp-label">Version</span><span class="sp-value" id="spVersion">—</span></div>
+      <div class="sp-row"><span class="sp-label">Mode</span><span class="sp-value"><span class="sp-mode on" id="spModeOn">LAN Server</span></span></div>
+      <p class="sp-hint" id="spHint" style="display:none;">Restart required to apply.</p>
+    </div>
     <button class="settings-btn" id="shortcutsBtn" title="About" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
     <button class="settings-btn" id="settingsBtn" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -768,7 +795,7 @@
             <div class="viz-menu-item" data-viz="coverdrift">Cover Drift</div>
             <div class="viz-menu-item" data-viz="bars">Bars</div>
             <div class="viz-menu-item" data-viz="circular">Circular</div>
-            <div class="viz-menu-item" data-viz="lyrics">Lyrics</div>
+            <div class="viz-menu-item" data-viz="text">Text</div>
             <div class="viz-menu-item close-item" id="vizCloseItem">Disable visualization</div>
           </div>
         </div>
@@ -980,7 +1007,7 @@
         <option value="coverdrift">Cover Drift</option>
         <option value="bars">Bars</option>
         <option value="circular">Circular</option>
-        <option value="lyrics">Lyrics</option>
+        <option value="text">Text</option>
       </select>
     </div>
 
@@ -1051,7 +1078,7 @@
     </div><!-- end modal-body -->
     <div class="modal-actions">
       <button id="settingsCancel">Cancel</button>
-      <button id="settingsSaveOnly">Save</button>
+      <button id="settingsSaveOnly" style="background:var(--green);color:#0a0a0b;border-color:var(--green);font-weight:600;">Save</button>
       <button class="primary" id="settingsSave">Save & Rescan</button>
     </div>
   </div>
@@ -2582,14 +2609,33 @@ if (isDesktop) {
   document.getElementById('tbMin').addEventListener('click', function() { window.resonance.minimize(); });
   document.getElementById('tbMax').addEventListener('click', function() { window.resonance.maximize(); });
 
-  // Server pill — shows "Online", click for details
+  // Server pill — shows "Online", click toggles popover
   var pill = document.getElementById('serverPill');
+  var popover = document.getElementById('serverPopover');
   pill.style.display = 'flex';
   var serverInfo = { ip: '...', port: 3000, version: '' };
   window.resonance.getServerStatus().then(function(s) { serverInfo.ip = s.ip; serverInfo.port = s.port || 3000; });
   window.resonance.getVersion().then(function(v) { serverInfo.version = v; });
-  pill.addEventListener('click', function() {
-    showToast('LAN: http://' + serverInfo.ip + ':' + serverInfo.port + ' — v' + serverInfo.version);
+  pill.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var isOpen = popover.classList.toggle('open');
+    if (isOpen) {
+      document.getElementById('spAddr').textContent = 'http://' + serverInfo.ip + ':' + serverInfo.port;
+      document.getElementById('spVersion').textContent = 'v' + serverInfo.version;
+    }
+  });
+  // Close popover on outside click
+  document.addEventListener('click', function(e) { if (!popover.contains(e.target) && e.target !== pill) popover.classList.remove('open'); });
+  // Mode toggle in popover
+  document.getElementById('spModeOn').addEventListener('click', function() {
+    var cfg = window._appConfig || {};
+    var isLan = cfg.lanEnabled !== false;
+    cfg.lanEnabled = !isLan;
+    window._appConfig = cfg;
+    window.resonance.setConfig(cfg);
+    this.textContent = cfg.lanEnabled ? 'LAN Server' : 'Offline';
+    this.className = 'sp-mode ' + (cfg.lanEnabled ? 'on' : 'off');
+    document.getElementById('spHint').style.display = 'block';
   });
 
   // Post audio output devices to server (for mobile Output tab)
