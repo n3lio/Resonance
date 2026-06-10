@@ -1,6 +1,6 @@
 {
   "name": "ghetto-blaster",
-  "version": "3.5.2",
+  "version": "3.5.3",
   "description": "Personal music player & LAN streamer for Windows, by n3lio",
   "main": "main.js",
   "scripts": {
@@ -51,7 +51,8 @@
     "nsis": {
       "oneClick": false,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": true
     },
     "publish": {
       "provider": "github",
