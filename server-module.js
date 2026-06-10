@@ -346,7 +346,7 @@ function startServer(port) {
       message: { error: 'Rescan limited to 3 per 5 minutes.' },
     });
 
-    app.use(express.json({ limit: '1mb' }));
+    app.use(express.json({ limit: '10mb' }));
     app.use(express.static(path.join(__dirname, 'public')));
 
     // ─── API Routes ──────────────────────────────────────────────────────────

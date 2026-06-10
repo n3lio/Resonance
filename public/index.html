@@ -281,8 +281,24 @@
       white-space: nowrap;
     }
     .toolbar-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+    .toolbar-sep {
+      width: 1px; height: 24px; background: var(--border); opacity: 0.5; flex-shrink: 0;
+    }
     .lib-view-btn { padding: 9px 12px; font-size: 0.76rem; }
     .lib-view-btn.active { background: var(--surface-active); color: var(--text); border-color: var(--border-light); }
+    .lib-back-bar {
+      display: none; align-items: center; gap: 10px; padding: 8px 0 4px;
+    }
+    .lib-back-bar.visible { display: flex; }
+    .lib-back-btn {
+      display: flex; align-items: center; gap: 5px;
+      background: none; border: 1px solid var(--border); border-radius: 8px;
+      padding: 5px 12px 5px 8px; font-size: 0.73rem; font-family: var(--font);
+      color: var(--text-muted); cursor: pointer; transition: all 0.2s;
+    }
+    .lib-back-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-subtle); }
+    .lib-back-btn svg { width: 14px; height: 14px; }
+    .lib-breadcrumb { font-size: 0.73rem; color: var(--text-dim); }
     /* Stats cards */
     .stat-card {
       background: linear-gradient(135deg, var(--surface) 0%, rgba(22,21,20,0.6) 100%);
@@ -319,8 +335,10 @@
     }
     .eq-val { font-size: 0.62rem; color: var(--text-dim); margin-top: 4px; }
 
-    .group-card { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.15s; }
+    .group-card { padding: 12px 20px; cursor: pointer; display: flex; align-items: center; gap: 12px; transition: background 0.15s; position: relative; }
     .group-card:hover { background: var(--accent-subtle); }
+    .group-add-btn { position: absolute; right: 16px; top: 50%; transform: translateY(-50%); background: none; border: 1px solid var(--border); color: var(--accent); cursor: pointer; font-size: 1rem; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0.5; transition: all 0.15s; }
+    .group-add-btn:hover { opacity: 1; background: var(--accent-subtle); border-color: var(--accent); transform: translateY(-50%) scale(1.1); }
     .group-icon { width: 44px; height: 44px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.9rem; color: #0a0a0b; flex-shrink: 0; }
     .group-name { font-size: 0.85rem; font-weight: 500; }
     .group-count { font-size: 0.72rem; color: var(--text-muted); }
@@ -379,11 +397,14 @@
     .track-genre { font-size: 0.66rem; padding: 3px 7px; border-radius: 12px; white-space: nowrap; font-weight: 500; max-width: 90px; overflow: hidden; text-overflow: ellipsis; }
     .track-duration { font-size: 0.75rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
     .track-item .add-btn, .track-item .fav-btn {
-      opacity: 0; background: none; border: none;
-      cursor: pointer; font-size: 1rem; padding: 4px 6px; transition: opacity 0.15s;
+      opacity: 0.5; background: none; border: none;
+      cursor: pointer; font-size: 1rem; padding: 4px 6px; border-radius: 6px;
+      transition: opacity 0.15s, background 0.15s, transform 0.15s;
     }
     .track-item .add-btn { color: var(--accent); }
+    .track-item .add-btn:hover { opacity: 1; background: var(--accent-subtle); transform: scale(1.15); }
     .track-item .fav-btn { color: var(--text-dim); }
+    .track-item .fav-btn:hover { opacity: 1; color: var(--rose); background: rgba(196,122,122,0.1); transform: scale(1.15); }
     .track-item .fav-btn.liked { color: var(--red); opacity: 1; }
     .track-item:hover .add-btn, .track-item:hover .fav-btn { opacity: 1; }
 
@@ -739,13 +760,13 @@
     <span class="server-pill on" id="serverPill" style="display:none;cursor:pointer;" title="Click for server details">
       <span class="dot"></span>
       <span class="server-label">Online</span>
+      <div class="server-popover" id="serverPopover">
+        <div class="sp-row"><span class="sp-label">LAN</span><span class="sp-value" id="spAddr">—</span></div>
+        <div class="sp-row"><span class="sp-label">Version</span><span class="sp-value" id="spVersion">—</span></div>
+        <div class="sp-row"><span class="sp-label">Mode</span><span class="sp-value"><span class="sp-mode on" id="spModeOn">LAN Server</span></span></div>
+        <p class="sp-hint" id="spHint" style="display:none;">Restart required to apply.</p>
+      </div>
     </span>
-    <div class="server-popover" id="serverPopover">
-      <div class="sp-row"><span class="sp-label">LAN</span><span class="sp-value" id="spAddr">—</span></div>
-      <div class="sp-row"><span class="sp-label">Version</span><span class="sp-value" id="spVersion">—</span></div>
-      <div class="sp-row"><span class="sp-label">Mode</span><span class="sp-value"><span class="sp-mode on" id="spModeOn">LAN Server</span></span></div>
-      <p class="sp-hint" id="spHint" style="display:none;">Restart required to apply.</p>
-    </div>
     <button class="settings-btn" id="shortcutsBtn" title="About" style="font-size:0.8rem;font-weight:700;font-family:var(--font);">?</button>
     <button class="settings-btn" id="settingsBtn" title="Settings">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -830,6 +851,12 @@
         <select class="genre-select" id="genreFilter"><option value="">All genres</option></select>
         <button class="toolbar-clear-x" id="clearGenre" title="Clear genre">&times;</button>
       </div>
+      <div class="toolbar-sep"></div>
+      <div class="lib-views" style="display:flex;gap:3px;">
+        <button class="toolbar-btn lib-view-btn active" data-view="tracks">Tracks</button>
+        <button class="toolbar-btn lib-view-btn" data-view="albums">Albums</button>
+        <button class="toolbar-btn lib-view-btn" data-view="artists">Artists</button>
+      </div>
       <select class="genre-select" id="sortSelect" style="max-width:120px;">
         <option value="title">Title A-Z</option>
         <option value="title-desc">Title Z-A</option>
@@ -838,12 +865,15 @@
         <option value="duration">Shortest</option>
         <option value="duration-desc">Longest</option>
       </select>
-      <div class="lib-views" style="display:flex;gap:3px;margin-left:auto;">
-        <button class="toolbar-btn lib-view-btn active" data-view="tracks">Tracks</button>
-        <button class="toolbar-btn lib-view-btn" data-view="albums">Albums</button>
-        <button class="toolbar-btn lib-view-btn" data-view="artists">Artists</button>
-      </div>
+      <div class="toolbar-sep"></div>
       <button class="toolbar-btn primary" id="playAll"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14" style="vertical-align:-2px;margin-right:4px;"><path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/></svg>Shuffle All</button>
+    </div>
+    <div class="lib-back-bar" id="libBackBar">
+      <button class="lib-back-btn" id="libBackBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back
+      </button>
+      <span class="lib-breadcrumb" id="libBreadcrumb"></span>
     </div>
     <div class="track-count" id="trackCount"></div>
     <div class="track-list" id="trackList"></div>
@@ -855,7 +885,12 @@
   <div class="panel" id="panel-playlists">
     <div class="toolbar">
       <span class="track-count" id="playlistCount" style="padding:0;margin:0;"></span>
-      <div style="margin-left:auto;display:flex;gap:6px;">
+      <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+        <div class="toolbar-input-wrap" style="flex:none;min-width:140px;max-width:180px;">
+          <input type="text" id="playlistSearch" placeholder="Search playlists..." style="padding:7px 30px 7px 12px;font-size:0.73rem;">
+          <button class="toolbar-clear-x" id="clearPlaylistSearch" title="Clear">&times;</button>
+        </div>
+        <div class="toolbar-sep"></div>
         <button class="toolbar-btn" id="saveQueueAsPlaylist">Save Queue</button>
         <button class="toolbar-btn primary" id="createPlaylistBtn">+ New Playlist</button>
       </div>
@@ -1214,8 +1249,10 @@ async function fetchGenres() {
   try { allGenres = await api('/genres'); renderGenreFilter(); } catch(e) { console.warn('fetchGenres:', e); }
 }
 
-async function fetchPlaylists() {
-  try { playlists = await api('/playlists'); renderPlaylists(); } catch(e) {}
+var _playlistsFetched = false;
+async function fetchPlaylists(force) {
+  if (!force && _playlistsFetched && playlists.length) { renderPlaylists(); return; }
+  try { playlists = await api('/playlists'); _playlistsFetched = true; renderPlaylists(); } catch(e) {}
 }
 
 // ─── Tabs ────────────────────────────────────────────────────────────────────
@@ -1522,14 +1559,43 @@ document.getElementById('genreFilter').addEventListener('change', applyFilters);
 
 // ─── Library Views (Tracks / Albums / Artists) ───────────────────────────────
 var currentLibView = 'tracks';
+var drillDownFrom = null; // 'albums' or 'artists' when drilled into a sub-view
+var drillDownLabel = '';  // e.g. the album or artist name
+
+function showBackBar(label) {
+  var bar = document.getElementById('libBackBar');
+  document.getElementById('libBreadcrumb').textContent = label;
+  bar.classList.add('visible');
+}
+function hideBackBar() {
+  document.getElementById('libBackBar').classList.remove('visible');
+  drillDownFrom = null;
+  drillDownLabel = '';
+}
+
+document.getElementById('libBackBtn').addEventListener('click', function() {
+  if (!drillDownFrom) return;
+  var target = drillDownFrom;
+  hideBackBar();
+  currentLibView = target;
+  document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === target); });
+  document.getElementById('trackList').style.display = 'none';
+  document.getElementById('albumList').style.display = target === 'albums' ? '' : 'none';
+  document.getElementById('artistList').style.display = target === 'artists' ? '' : 'none';
+  tracks = allTracks.slice();
+  updateSortOptions();
+  applyFilters();
+});
 
 document.querySelectorAll('.lib-view-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
+    hideBackBar();
     currentLibView = btn.dataset.view;
     document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === currentLibView); });
     document.getElementById('trackList').style.display = currentLibView === 'tracks' ? '' : 'none';
     document.getElementById('albumList').style.display = currentLibView === 'albums' ? '' : 'none';
     document.getElementById('artistList').style.display = currentLibView === 'artists' ? '' : 'none';
+    tracks = allTracks.slice();
     // Hide duration sort options for Albums/Artists views (makes no sense)
     updateSortOptions();
     // Apply current filters/sort to the new view
@@ -1580,13 +1646,34 @@ function renderAlbums() {
     var coverHtml = a.hasCover
       ? '<div class="group-icon" style="background:none;overflow:hidden;border-radius:6px;"><img src="/api/cover/' + a.coverId + '" style="width:100%;height:100%;object-fit:cover;"></div>'
       : ALBUM_PH;
-    return '<div class="group-card" data-album="' + esc(a.album) + '">' +
-      coverHtml + '<div><div class="group-name">' + esc(a.album) + '</div><div class="group-count">' + esc(artistLabel) + ' — ' + a.tracks.length + ' tracks</div></div></div>';
+    return '<div class="group-card" data-album="' + esc(a.album) + '" data-tracks="' + a.tracks.join(',') + '">' +
+      coverHtml + '<div><div class="group-name">' + esc(a.album) + '</div><div class="group-count">' + esc(artistLabel) + ' — ' + a.tracks.length + ' tracks</div></div>' +
+      '<button class="group-add-btn" title="Add to queue">+</button></div>';
   }).join('');
   list.querySelectorAll('.group-card').forEach(function(card) {
+    // Add to queue button
+    var addBtn = card.querySelector('.group-add-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var ids = card.dataset.tracks ? card.dataset.tracks.split(',').map(Number) : [];
+        if (!ids.length) return;
+        if (!isDesktop && mobileMode === 'remote') {
+          sendRemoteCommand('add-tracks', { trackIds: ids });
+          showToast('Added ' + ids.length + ' tracks to queue');
+        } else {
+          ids.forEach(function(id) { queue.push(id); });
+          renderQueue();
+          showToast('Added ' + ids.length + ' tracks to queue');
+        }
+      });
+    }
     card.addEventListener('click', function() {
       var album = card.dataset.album;
       tracks = allTracks.filter(function(t) { return t.album === album; });
+      drillDownFrom = 'albums';
+      drillDownLabel = album;
+      showBackBar(album);
       currentLibView = 'tracks';
       document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
       document.getElementById('trackList').style.display = '';
@@ -1652,15 +1739,40 @@ function renderArtists() {
     var color = ARTIST_COLORS[i % ARTIST_COLORS.length];
     return '<div class="group-card" data-artist="' + esc(a.artist) + '">' +
       '<div class="group-icon" style="background:' + color + ';">' + esc(a.artist.charAt(0).toUpperCase()) + '</div>' +
-      '<div><div class="group-name">' + esc(a.artist) + '</div><div class="group-count">' + a.count + ' tracks</div></div></div>';
+      '<div><div class="group-name">' + esc(a.artist) + '</div><div class="group-count">' + a.count + ' tracks</div></div>' +
+      '<button class="group-add-btn" title="Add to queue">+</button></div>';
   }).join('');
   list.querySelectorAll('.group-card').forEach(function(card) {
+    // Add to queue button
+    var addBtn = card.querySelector('.group-add-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var artist = card.dataset.artist;
+        var artistLower = artist.toLowerCase();
+        var ids = allTracks.filter(function(t) {
+          return splitArtists(t.artist).some(function(a) { return a.toLowerCase() === artistLower; });
+        }).map(function(t) { return t.id; });
+        if (!ids.length) return;
+        if (!isDesktop && mobileMode === 'remote') {
+          sendRemoteCommand('add-tracks', { trackIds: ids });
+          showToast('Added ' + ids.length + ' tracks to queue');
+        } else {
+          ids.forEach(function(id) { queue.push(id); });
+          renderQueue();
+          showToast('Added ' + ids.length + ' tracks to queue');
+        }
+      });
+    }
     card.addEventListener('click', function() {
       var artist = card.dataset.artist;
       var artistLower = artist.toLowerCase();
       tracks = allTracks.filter(function(t) {
         return splitArtists(t.artist).some(function(a) { return a.toLowerCase() === artistLower; });
       });
+      drillDownFrom = 'artists';
+      drillDownLabel = artist;
+      showBackBar(artist);
       currentLibView = 'tracks';
       document.querySelectorAll('.lib-view-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.view === 'tracks'); });
       document.getElementById('trackList').style.display = '';
@@ -1731,7 +1843,7 @@ function renderPlaylists() {
       var ids = playlists.map(function(p){ return p.id; });
       var moved = ids.splice(dragSrcIdx, 1)[0];
       ids.splice(dropIdx, 0, moved);
-      api('/playlists/reorder', 'POST', { order: ids }).then(fetchPlaylists);
+      api('/playlists/reorder', 'POST', { order: ids }).then(function() { fetchPlaylists(true); });
     });
   });
 
@@ -1760,7 +1872,7 @@ function renderPlaylists() {
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
       if (confirm('Delete this playlist?')) {
-        api('/playlists/' + btn.dataset.id, 'DELETE').then(fetchPlaylists);
+        api('/playlists/' + btn.dataset.id, 'DELETE').then(function() { fetchPlaylists(true); });
       }
     });
   });
@@ -1789,6 +1901,31 @@ function renderPlaylists() {
   });
 }
 
+// Playlist search filter
+(function() {
+  var plSearch = document.getElementById('playlistSearch');
+  var plClear = document.getElementById('clearPlaylistSearch');
+  var plSearchTimeout;
+  plSearch.addEventListener('input', function() {
+    clearTimeout(plSearchTimeout);
+    plSearchTimeout = setTimeout(function() {
+      var q = plSearch.value.trim().toLowerCase();
+      plSearch.parentElement.classList.toggle('has-value', !!q);
+      var cards = document.querySelectorAll('#playlistsView .playlist-card');
+      cards.forEach(function(card) {
+        var name = card.querySelector('.pl-name');
+        var text = name ? name.textContent.toLowerCase() : '';
+        card.style.display = text.includes(q) ? '' : 'none';
+      });
+    }, 150);
+  });
+  plClear.addEventListener('click', function() {
+    plSearch.value = '';
+    plSearch.parentElement.classList.remove('has-value');
+    document.querySelectorAll('#playlistsView .playlist-card').forEach(function(c) { c.style.display = ''; });
+  });
+})();
+
 // Create playlist
 document.getElementById('createPlaylistBtn').addEventListener('click', function() {
   document.getElementById('playlistModal').classList.add('open');
@@ -1807,7 +1944,7 @@ document.getElementById('plCreate').addEventListener('click', async function() {
   else if (queue.length) body.trackIds = queue;
   else return alert('Enter keywords or have tracks in your queue');
   var r = await api('/playlists', 'POST', body);
-  if (r.ok) { document.getElementById('playlistModal').classList.remove('open'); fetchPlaylists(); }
+  if (r.ok) { document.getElementById('playlistModal').classList.remove('open'); fetchPlaylists(true); }
   else alert(r.error || 'Error');
 });
 
@@ -1826,7 +1963,7 @@ document.getElementById('editPlSave').addEventListener('click', async function()
     if (genres) body.genreMatch = genres.split(',').map(function(g){ return g.trim().toLowerCase(); }).filter(Boolean);
   }
   var r = await api('/playlists/' + plId, 'PUT', body);
-  if (r.ok) { modal.classList.remove('open'); fetchPlaylists(); showToast('Playlist updated'); }
+  if (r.ok) { modal.classList.remove('open'); fetchPlaylists(true); showToast('Playlist updated'); }
   else showToast(r.error || 'Error');
 });
 
@@ -1865,7 +2002,7 @@ document.getElementById('saveQueueAsPlaylist').addEventListener('click', functio
   var name = prompt('Playlist name:');
   if (!name) return;
   api('/playlists', 'POST', { name: name, trackIds: queue }).then(function(r) {
-    if (r.ok) { showToast('Playlist "' + name + '" saved (' + queue.length + ' tracks)'); fetchPlaylists(); }
+    if (r.ok) { showToast('Playlist "' + name + '" saved (' + queue.length + ' tracks)'); fetchPlaylists(true); }
     else alert(r.error || 'Error');
   });
 });
@@ -1881,7 +2018,16 @@ function playCurrentTrack() {
 
   audio.src = '/api/stream/' + trackId;
   audio.load();
-  audio.play().catch(function(){});
+  audio.play().then(function() {
+    isPlaying = true;
+    updatePlayBtn();
+  }).catch(function(e) {
+    console.warn('play() failed, retrying:', e.message);
+    // Retry once after a short delay (autoplay policy or load timing)
+    setTimeout(function() {
+      audio.play().then(function() { isPlaying = true; updatePlayBtn(); }).catch(function(){});
+    }, 200);
+  });
   isPlaying = true;
 
   // Log to history
@@ -2618,6 +2764,7 @@ if (isDesktop) {
   window.resonance.getVersion().then(function(v) { serverInfo.version = v; });
   pill.addEventListener('click', function(e) {
     e.stopPropagation();
+    if (popover.contains(e.target)) return; // don't toggle when clicking inside popover
     var isOpen = popover.classList.toggle('open');
     if (isOpen) {
       document.getElementById('spAddr').textContent = 'http://' + serverInfo.ip + ':' + serverInfo.port;
@@ -2625,7 +2772,7 @@ if (isDesktop) {
     }
   });
   // Close popover on outside click
-  document.addEventListener('click', function(e) { if (!popover.contains(e.target) && e.target !== pill) popover.classList.remove('open'); });
+  document.addEventListener('click', function(e) { if (!pill.contains(e.target)) popover.classList.remove('open'); });
   // Mode toggle in popover
   document.getElementById('spModeOn').addEventListener('click', function() {
     var cfg = window._appConfig || {};
@@ -3215,6 +3362,10 @@ function remoteAddToQueue(trackId) {
       }
       if (cmd === 'add-to-queue' && msg.data.trackId != null) {
         queue.push(msg.data.trackId);
+        renderQueue();
+      }
+      if (cmd === 'add-tracks' && msg.data.trackIds) {
+        msg.data.trackIds.forEach(function(id) { queue.push(id); });
         renderQueue();
       }
       if (cmd === 'play-index' && msg.data.index != null) {
