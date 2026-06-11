@@ -164,12 +164,15 @@
     }
     .server-popover.open { display: block; }
     @keyframes popIn { from { opacity: 0; transform: translateY(-4px) scale(0.96); } to { opacity: 1; transform: none; } }
-    .sp-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
-    .sp-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; }
-    .sp-value { font-size: 0.78rem; color: var(--text); font-weight: 500; }
-    .sp-mode { padding: 3px 9px; border-radius: 10px; font-size: 0.68rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .sp-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; gap: 14px; }
+    .sp-row + .sp-row { border-top: 1px solid rgba(255,255,255,0.04); }
+    .sp-label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+    .sp-value { font-size: 0.78rem; color: var(--text); font-weight: 500; text-align: right; }
+    .sp-mode { padding: 4px 10px; border-radius: 10px; font-size: 0.68rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
     .sp-mode.on { background: rgba(122,196,122,0.1); color: var(--green); border: 1px solid rgba(122,196,122,0.3); }
+    .sp-mode.on:hover { background: rgba(122,196,122,0.2); border-color: var(--green); transform: translateY(-1px); }
     .sp-mode.off { background: rgba(240,235,228,0.06); color: var(--text-muted); border: 1px solid var(--border); }
+    .sp-mode.off:hover { background: rgba(240,235,228,0.1); border-color: var(--text-muted); transform: translateY(-1px); }
     .sp-hint { font-size: 0.66rem; color: var(--text-dim); margin: 8px 0 0; font-style: italic; }
 
     .settings-btn {
@@ -1007,9 +1010,10 @@
   <div class="about-card">
     <img src="/illustration.png" alt="Ghetto Blaster" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
     <h2 style="font-size:1.1rem;font-weight:800;margin:0;background:linear-gradient(135deg,var(--accent),var(--rose));-webkit-background-clip:text;-webkit-text-fill-color:transparent;">Ghetto Blaster</h2>
-    <p style="font-size:0.72rem;color:var(--text-dim);margin:6px 0 2px;" id="aboutVersion">Personal music player & LAN streamer</p>
+    <p style="font-size:0.72rem;color:var(--text-dim);margin:6px 0 2px;">Personal music player & LAN streamer</p>
     <p style="font-size:0.68rem;color:var(--text-dim);margin:0;">by <span style="color:var(--text-muted);font-weight:500;">n3lio</span></p>
-    <a href="https://github.com/n3lio/Ghetto-Blaster" target="_blank" rel="noopener" style="display:inline-block;margin-top:16px;font-size:0.7rem;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:5px 14px;border-radius:14px;transition:all 0.2s;">View on GitHub</a>
+    <p style="font-size:0.66rem;color:var(--text-muted);margin:8px 0 0;font-weight:500;" id="aboutVersion"></p>
+    <a href="https://github.com/n3lio/Ghetto-Blaster" target="_blank" rel="noopener" style="position:relative;z-index:2;display:inline-block;margin-top:14px;font-size:0.7rem;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:6px 16px;border-radius:14px;transition:all 0.2s;" onmouseover="this.style.background='var(--accent-subtle)';this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 12px rgba(232,164,53,0.2)'" onmouseout="this.style.background='';this.style.transform='';this.style.boxShadow=''">View on GitHub</a>
   </div>
 </div>
 
@@ -2506,6 +2510,11 @@ document.getElementById('shortcutsBtn').addEventListener('click', function() {
   var modal = document.getElementById('aboutModal');
   modal.classList.remove('closing');
   modal.classList.add('open');
+  if (window.resonance && window.resonance.getVersion) {
+    window.resonance.getVersion().then(function(v) {
+      document.getElementById('aboutVersion').textContent = 'v' + v;
+    });
+  }
 });
 document.getElementById('aboutModal').addEventListener('click', function(e) {
   if (e.target === this || e.target.closest('.about-card') === null) {
