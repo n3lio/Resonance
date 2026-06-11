@@ -2557,12 +2557,19 @@ function setBadgeStyle(badge, type) {
 
 function triggerDownload() {
   var badge = document.getElementById('updateBadge');
-  badge.textContent = 'downloading…';
+  var wasError = window._updateState.status === 'error';
+  badge.textContent = wasError ? 'retrying…' : 'downloading…';
   setBadgeStyle(badge, 'downloading');
   badge.onclick = null; badge.style.cursor = 'default';
   window._updateState.status = 'downloading';
   syncSettingsUpdate();
-  window.resonance.downloadUpdate();
+  if (wasError) {
+    // After an error, electron-updater needs a fresh check before download
+    window._updateState._autoDownload = true;
+    window.resonance.checkForUpdates();
+  } else {
+    window.resonance.downloadUpdate();
+  }
 }
 
 async function openSettings() {
@@ -2862,12 +2869,23 @@ if (isDesktop) {
   // Updates — wire IPC events to global state + badge
   window.resonance.onUpdateAvailable(function(d) {
     var badge = document.getElementById('updateBadge');
+    var shouldAutoDownload = window._updateState && window._updateState._autoDownload;
     window._updateState = { status: 'available', version: d.version };
-    badge.textContent = 'v' + d.version + ' available';
-    setBadgeStyle(badge, 'available');
-    badge.style.cursor = 'pointer';
-    badge.onclick = triggerDownload;
-    syncSettingsUpdate();
+    if (shouldAutoDownload) {
+      // This is a retry after error — auto-trigger download
+      badge.textContent = 'downloading…';
+      setBadgeStyle(badge, 'downloading');
+      badge.onclick = null; badge.style.cursor = 'default';
+      window._updateState.status = 'downloading';
+      syncSettingsUpdate();
+      window.resonance.downloadUpdate();
+    } else {
+      badge.textContent = 'v' + d.version + ' available';
+      setBadgeStyle(badge, 'available');
+      badge.style.cursor = 'pointer';
+      badge.onclick = triggerDownload;
+      syncSettingsUpdate();
+    }
   });
   window.resonance.onUpdateProgress(function(d) {
     var badge = document.getElementById('updateBadge');

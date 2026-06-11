@@ -202,7 +202,10 @@ function setupAutoUpdater() {
 
 // IPC: user confirms they want to download the update
 ipcMain.handle('app:download-update', () => {
-  autoUpdater.downloadUpdate();
+  autoUpdater.downloadUpdate().catch((err) => {
+    console.error('Download update failed:', err.message);
+    notifyRenderer('app:update-error', { message: err.message });
+  });
 });
 
 // IPC: user wants to re-check for updates (from Settings)
