@@ -1181,18 +1181,22 @@ function getTrack(id) { return trackCache[id] || null; }
 
 // Genre → color mapping (semantic colors)
 var GENRE_COLORS = [
+  // French rap MUST be before generic hip-hop (first match wins)
+  { match: ['french rap','rap français','rap francais','rap fr','french hip-hop','french hip hop'], color: '#4a8fe7', bg: 'rgba(74,143,231,0.12)' }, // bleu France
   { match: ['hip-hop','hiphop','rap','hip hop'], color: '#9b59b6', bg: 'rgba(155,89,182,0.12)' }, // purple
   { match: ['rock','punk','metal','grunge','hard rock'], color: '#e05555', bg: 'rgba(224,85,85,0.12)' }, // red
-  { match: ['electro','electronic','edm','house','techno','trance'], color: '#5ba8e8', bg: 'rgba(91,168,232,0.12)' }, // blue
+  { match: ['electro','electronic','edm','house','techno','trance','dubstep'], color: '#5ba8e8', bg: 'rgba(91,168,232,0.12)' }, // blue
   { match: ['reggae','ragga','dancehall','dub','ska'], color: '#27ae60', bg: 'rgba(39,174,96,0.12)' }, // green
-  { match: ['jazz','swing','bebop'], color: '#e8a435', bg: 'rgba(232,164,53,0.12)' }, // amber
-  { match: ['classical','orchestra','symphony'], color: '#8e8e93', bg: 'rgba(142,142,147,0.1)' }, // grey
-  { match: ['pop','synth-pop','synthpop'], color: '#e06b9f', bg: 'rgba(224,107,159,0.12)' }, // pink
-  { match: ['r&b','rnb','soul','neo-soul'], color: '#c47a7a', bg: 'rgba(196,122,122,0.12)' }, // rose
+  { match: ['jazz','swing','bebop','bossa'], color: '#e8a435', bg: 'rgba(232,164,53,0.12)' }, // amber
+  { match: ['classical','orchestra','symphony','opera'], color: '#8e8e93', bg: 'rgba(142,142,147,0.1)' }, // grey
+  { match: ['pop','synth-pop','synthpop','k-pop','kpop'], color: '#e06b9f', bg: 'rgba(224,107,159,0.12)' }, // pink
+  { match: ['r&b','rnb','soul','neo-soul','neo soul'], color: '#c47a7a', bg: 'rgba(196,122,122,0.12)' }, // rose
   { match: ['blues'], color: '#4a90d9', bg: 'rgba(74,144,217,0.12)' }, // deep blue
   { match: ['latin','reggaeton','salsa','bachata','latino'], color: '#f39c12', bg: 'rgba(243,156,18,0.12)' }, // orange
   { match: ['alternative','indie','alt'], color: '#4dd4ac', bg: 'rgba(77,212,172,0.12)' }, // teal
-  { match: ['country','folk'], color: '#d4a76a', bg: 'rgba(212,167,106,0.12)' }, // tan
+  { match: ['country','folk','americana'], color: '#d4a76a', bg: 'rgba(212,167,106,0.12)' }, // tan
+  { match: ['funk','disco'], color: '#e8c83a', bg: 'rgba(232,200,58,0.12)' }, // gold
+  { match: ['ambient','drone','new age','lo-fi','lofi'], color: '#7ab5c4', bg: 'rgba(122,181,196,0.12)' }, // soft cyan
 ];
 
 function getGenreStyle(genre) {
@@ -1536,16 +1540,20 @@ document.getElementById('queueList').addEventListener('click', function(e) {
 // ─── Genre Filter ────────────────────────────────────────────────────────────
 // Genre super-groups (match any genre containing these keywords)
 var GENRE_GROUPS = [
-  { label: 'Hip-Hop', match: ['hip-hop','hiphop','rap'] },
+  { label: 'Hip-Hop', match: ['hip-hop','hiphop','rap','hip hop'] },
+  { label: 'Rap FR', match: ['french rap','rap français','rap francais','rap fr','french hip-hop','french hip hop'] },
   { label: 'Electro', match: ['electro','electronic','edm','house','techno','trance','dubstep','dnb','drum'] },
   { label: 'Rock', match: ['rock','punk','metal','grunge','indie rock'] },
   { label: 'R&B / Soul', match: ['r&b','rnb','soul','neo-soul','neo soul'] },
-  { label: 'Reggae', match: ['reggae','dancehall','dub'] },
-  { label: 'Jazz', match: ['jazz','bebop','swing'] },
-  { label: 'Classical', match: ['classical','orchestra','symphony'] },
-  { label: 'Pop', match: ['pop'] },
+  { label: 'Reggae', match: ['reggae','dancehall','dub','ska'] },
+  { label: 'Jazz', match: ['jazz','bebop','swing','bossa'] },
+  { label: 'Classical', match: ['classical','orchestra','symphony','opera'] },
+  { label: 'Pop', match: ['pop','synth-pop','synthpop','k-pop'] },
   { label: 'Blues', match: ['blues'] },
-  { label: 'Alternative', match: ['alternative','alt'] },
+  { label: 'Latin', match: ['latin','reggaeton','salsa','bachata','latino'] },
+  { label: 'Alternative', match: ['alternative','indie','alt'] },
+  { label: 'Funk / Disco', match: ['funk','disco'] },
+  { label: 'Ambient', match: ['ambient','lo-fi','lofi','new age'] },
 ];
 
 function renderGenreFilter() {
