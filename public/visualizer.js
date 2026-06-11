@@ -1,7 +1,7 @@
 /**
- * Audio Visualizer — 9 modes
+ * Audio Visualizer — Shape × Color architecture
+ * 9 shapes, 2 color modes (theme / cover)
  * Web Audio API (AnalyserNode) + Canvas 2D
- * Theme-aware: reads CSS --hue variable
  */
 
 class Visualizer {
@@ -9,7 +9,8 @@ class Visualizer {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
     this.audio = audio;
-    this.mode = 'nebula';
+    this.mode = 'drift'; // shape
+    this.colorMode = 'theme'; // 'theme' or 'cover'
     this.running = false;
     this.animId = null;
     this.frame = 0;
@@ -39,7 +40,6 @@ class Visualizer {
 
   initAudio() {
     if (this.audioCtx) {
-      // Ensure resumed on subsequent calls
       if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
       return;
     }
@@ -52,14 +52,36 @@ class Visualizer {
     this.analyser.connect(this.audioCtx.destination);
     this.dataArray = new Uint8Array(this.analyser.frequencyBinCount);
     this.freqArray = new Uint8Array(this.analyser.frequencyBinCount);
-    // Resume immediately (Chromium requires user gesture, but Electron usually allows it)
     if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
   }
 
   start() { if (this.running) return; this.running = true; this.loop(); }
   stop() { this.running = false; if (this.animId) cancelAnimationFrame(this.animId); this.clear(); }
   setMode(m) { this.mode = m; if (m === 'starfield') this.initStars(); if (m === 'glow') this.initParticles(); }
+  setColorMode(m) { this.colorMode = m; }
   setTrack(t, a) { this.trackTitle = t || ''; this.trackArtist = a || ''; }
+
+  // ─── Color source: returns [hue, rgb1, rgb2, rgb3] based on colorMode ────
+  getColors() {
+    var hue = this.getHue();
+    if (this.colorMode === 'cover' && this.coverColors && this.coverColors.length >= 2) {
+      return {
+        hue: hue,
+        c1: this.coverColors[0],
+        c2: this.coverColors[1],
+        c3: this.coverColors[2] || this.coverColors[0],
+        source: 'cover'
+      };
+    }
+    // Theme mode: derive 3 colors from hue
+    return {
+      hue: hue,
+      c1: this.hslToRgb(hue / 360, 0.8, 0.55),
+      c2: this.hslToRgb(((hue + 140) % 360) / 360, 0.7, 0.5),
+      c3: this.hslToRgb(((hue + 260) % 360) / 360, 0.6, 0.45),
+      source: 'theme'
+    };
+  }
 
   // Extract dominant colors from cover image
   setCoverColors(coverUrl) {
@@ -72,19 +94,18 @@ class Visualizer {
       const cx = c.getContext('2d');
       cx.drawImage(img, 0, 0, 8, 8);
       const data = cx.getImageData(0, 0, 8, 8).data;
-      // Sample corners + center for palette
-      const samples = [0, 7, 56, 63, 27, 36]; // pixel indices
+      const samples = [0, 7, 56, 63, 27, 36];
       const colors = samples.map(i => {
         const idx = i * 4;
         return [data[idx], data[idx+1], data[idx+2]];
-      }).filter(c => (c[0]+c[1]+c[2]) > 30 && (c[0]+c[1]+c[2]) < 720); // skip pure black/white
+      }).filter(c => (c[0]+c[1]+c[2]) > 30 && (c[0]+c[1]+c[2]) < 720);
       this.coverColors = colors.length >= 2 ? colors : null;
     };
     img.src = coverUrl;
   }
+
   clear() { this.ctx.clearRect(0, 0, this.w, this.h); }
 
-  // Theme hue from CSS
   getHue() {
     try { return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--hue')) || 38; }
     catch(e) { return 38; }
@@ -100,372 +121,392 @@ class Visualizer {
     this.clear();
     switch (this.mode) {
       case 'nebula': this.drawNebula(); break;
+      case 'glow': this.drawGlow(); break;
       case 'drift': this.drawDrift(); break;
       case 'wave': this.drawWave(); break;
       case 'starfield': this.drawStarfield(); break;
-      case 'spectrum': this.drawSpectrum(); break;
-      case 'glow': this.drawGlow(); break;
-      case 'coverdrift': this.drawCoverDrift(); break;
       case 'bars': this.drawBars(); break;
+      case 'spectrum': this.drawSpectrum(); break;
       case 'circular': this.drawCircular(); break;
       case 'text': this.drawText(); break;
     }
   }
 
-  getAvg(s,e){let sum=0;for(let i=s;i<e&&i<this.freqArray.length;i++)sum+=this.freqArray[i];return sum/(e-s)/255;}
-  boost(v,p){return Math.pow(v,p||0.6);}
+  getAvg(s, e) { let sum = 0; for (let i = s; i < e && i < this.freqArray.length; i++) sum += this.freqArray[i]; return sum / (e - s) / 255; }
+  boost(v, p) { return Math.pow(v, p || 0.6); }
 
-  // ─── NEBULA (pure — no wave overlay) ──────────────────────────────────────
-  drawNebula() {
-    const {ctx,w,h}=this;
-    const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,6));
-    const mid=this.boost(this.getAvg(8,20));
-    const high=this.boost(this.getAvg(24,50));
-    const t=this.frame*0.012;
-
-    ctx.fillStyle=`rgba(10,10,11,${0.04+(1-bass)*0.04})`;
-    ctx.fillRect(0,0,w,h);
-
-    const layers=[
-      {cx:0.3+Math.sin(t*0.7)*0.15,cy:0.4+Math.cos(t*0.5)*0.15,r:0.35+bass*0.55,h:hue,alpha:0.04+bass*0.18},
-      {cx:0.7+Math.cos(t*0.6)*0.12,cy:0.5+Math.sin(t*0.8)*0.12,r:0.3+mid*0.45,h:hue+120,alpha:0.03+mid*0.14},
-      {cx:0.5+Math.sin(t*0.9)*0.18,cy:0.35+Math.cos(t*0.4)*0.15,r:0.25+high*0.4,h:hue+240,alpha:0.025+high*0.12},
-      {cx:0.4+Math.cos(t*1.1)*0.1,cy:0.65+Math.sin(t*0.6)*0.1,r:0.22+bass*0.35,h:hue+60,alpha:0.02+mid*0.08},
-    ];
-    for(const l of layers){
-      const g=ctx.createRadialGradient(l.cx*w,l.cy*h,0,l.cx*w,l.cy*h,l.r*w);
-      g.addColorStop(0,`hsla(${l.h},90%,60%,${l.alpha})`);
-      g.addColorStop(0.35,`hsla(${l.h+10},80%,50%,${l.alpha*0.6})`);
-      g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  // Helper: HSL (0-1) to RGB (0-255)
+  hslToRgb(h, s, l) {
+    let r, g, b;
+    if (s === 0) { r = g = b = l; } else {
+      const hue2rgb = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1 / 6) return p + (q - p) * 6 * t; if (t < 1 / 2) return q; if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6; return p; };
+      const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q;
+      r = hue2rgb(p, q, h + 1 / 3); g = hue2rgb(p, q, h); b = hue2rgb(p, q, h - 1 / 3);
     }
-    if(bass>0.6){ctx.fillStyle=`hsla(${hue},80%,60%,${(bass-0.6)*0.25})`;ctx.fillRect(0,0,w,h);}
+    return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
   }
 
-  // ─── DRIFT (nebula + wave combo) ──────────────────────────────────────────
-  drawDrift() {
-    const {ctx,w,h,dataArray}=this;
-    const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,6));
-    const mid=this.boost(this.getAvg(8,20));
-    const high=this.boost(this.getAvg(24,50));
-    const t=this.frame*0.01;
+  // Helper: rgba string from color array
+  rgba(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
 
-    ctx.fillStyle=`rgba(10,10,11,${0.04+(1-bass)*0.04})`;
-    ctx.fillRect(0,0,w,h);
+  // ─── NEBULA ───────────────────────────────────────────────────────────────
+  drawNebula() {
+    const { ctx, w, h } = this;
+    const colors = this.getColors();
+    const bass = this.boost(this.getAvg(0, 6));
+    const mid = this.boost(this.getAvg(8, 20));
+    const high = this.boost(this.getAvg(24, 50));
+    const t = this.frame * 0.012;
 
-    // Rich nebula background (same intensity as Nebula mode)
-    const layers=[
-      {cx:0.3+Math.sin(t*0.7)*0.15,cy:0.4+Math.cos(t*0.5)*0.15,r:0.35+bass*0.5,h:hue,alpha:0.04+bass*0.16},
-      {cx:0.7+Math.cos(t*0.6)*0.12,cy:0.55+Math.sin(t*0.8)*0.12,r:0.3+mid*0.4,h:hue+140,alpha:0.03+mid*0.12},
-      {cx:0.5+Math.sin(t*0.9)*0.14,cy:0.35+Math.cos(t*0.4)*0.12,r:0.25+high*0.35,h:hue+260,alpha:0.025+high*0.1},
+    ctx.fillStyle = 'rgba(10,10,11,' + (0.04 + (1 - bass) * 0.04) + ')';
+    ctx.fillRect(0, 0, w, h);
+
+    const layers = [
+      { cx: 0.3 + Math.sin(t * 0.7) * 0.15, cy: 0.4 + Math.cos(t * 0.5) * 0.15, r: 0.35 + bass * 0.55, c: colors.c1, alpha: 0.04 + bass * 0.18 },
+      { cx: 0.7 + Math.cos(t * 0.6) * 0.12, cy: 0.5 + Math.sin(t * 0.8) * 0.12, r: 0.3 + mid * 0.45, c: colors.c2, alpha: 0.03 + mid * 0.14 },
+      { cx: 0.5 + Math.sin(t * 0.9) * 0.18, cy: 0.35 + Math.cos(t * 0.4) * 0.15, r: 0.25 + high * 0.4, c: colors.c3, alpha: 0.025 + high * 0.12 },
+      { cx: 0.4 + Math.cos(t * 1.1) * 0.1, cy: 0.65 + Math.sin(t * 0.6) * 0.1, r: 0.22 + bass * 0.35, c: colors.c1, alpha: 0.02 + mid * 0.08 },
     ];
-    for(const l of layers){
-      const g=ctx.createRadialGradient(l.cx*w,l.cy*h,0,l.cx*w,l.cy*h,l.r*w);
-      g.addColorStop(0,`hsla(${l.h},90%,60%,${l.alpha})`);
-      g.addColorStop(0.4,`hsla(${l.h+10},80%,50%,${l.alpha*0.55})`);
-      g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+    for (const l of layers) {
+      const g = ctx.createRadialGradient(l.cx * w, l.cy * h, 0, l.cx * w, l.cy * h, l.r * w);
+      g.addColorStop(0, this.rgba(l.c, l.alpha));
+      g.addColorStop(0.35, this.rgba(l.c, l.alpha * 0.6));
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
     }
-    if(bass>0.6){ctx.fillStyle=`hsla(${hue},80%,60%,${(bass-0.6)*0.2})`;ctx.fillRect(0,0,w,h);}
+    if (bass > 0.6) { ctx.fillStyle = this.rgba(colors.c1, (bass - 0.6) * 0.25); ctx.fillRect(0, 0, w, h); }
+  }
 
-    // Wave overlay
-    if(dataArray){
-      const waveLayers=[
-        {lw:6,alpha:0.08+bass*0.12,h:hue},
-        {lw:2.5,alpha:0.3+bass*0.4,h:hue+30},
-        {lw:1.2,alpha:0.6+bass*0.4,h:0,white:true},
+  // ─── DRIFT (nebula + wave + glow) ─────────────────────────────────────────
+  drawDrift() {
+    const { ctx, w, h, dataArray } = this;
+    const colors = this.getColors();
+    const bass = this.boost(this.getAvg(0, 6));
+    const mid = this.boost(this.getAvg(8, 20));
+    const high = this.boost(this.getAvg(24, 50));
+    const t = this.frame * 0.01;
+
+    ctx.fillStyle = 'rgba(10,10,11,' + (0.04 + (1 - bass) * 0.04) + ')';
+    ctx.fillRect(0, 0, w, h);
+
+    // Nebula background
+    const layers = [
+      { cx: 0.3 + Math.sin(t * 0.7) * 0.15, cy: 0.4 + Math.cos(t * 0.5) * 0.15, r: 0.35 + bass * 0.5, c: colors.c1, alpha: 0.04 + bass * 0.16 },
+      { cx: 0.7 + Math.cos(t * 0.6) * 0.12, cy: 0.55 + Math.sin(t * 0.8) * 0.12, r: 0.3 + mid * 0.4, c: colors.c2, alpha: 0.03 + mid * 0.12 },
+      { cx: 0.5 + Math.sin(t * 0.9) * 0.14, cy: 0.35 + Math.cos(t * 0.4) * 0.12, r: 0.25 + high * 0.35, c: colors.c3, alpha: 0.025 + high * 0.1 },
+    ];
+    for (const l of layers) {
+      const g = ctx.createRadialGradient(l.cx * w, l.cy * h, 0, l.cx * w, l.cy * h, l.r * w);
+      g.addColorStop(0, this.rgba(l.c, l.alpha));
+      g.addColorStop(0.4, this.rgba(l.c, l.alpha * 0.55));
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+    if (bass > 0.6) { ctx.fillStyle = this.rgba(colors.c1, (bass - 0.6) * 0.2); ctx.fillRect(0, 0, w, h); }
+
+    // Wave overlay with colored glow
+    if (dataArray) {
+      const waveLayers = [
+        { lw: 6, alpha: 0.08 + bass * 0.12, c: colors.c1 },
+        { lw: 2.5, alpha: 0.3 + bass * 0.4, c: colors.c2 },
+        { lw: 1.2, alpha: 0.6 + bass * 0.4, c: null },
       ];
-      waveLayers.forEach(({lw,alpha,h:wh,white})=>{
-        ctx.beginPath();ctx.lineWidth=lw;
-        ctx.strokeStyle=white?`rgba(240,235,228,${alpha})`:`hsla(${wh},80%,60%,${alpha})`;
-        ctx.shadowColor=`hsla(${hue},80%,55%,${0.3+bass*0.5})`;ctx.shadowBlur=lw*3;
-        const sl=w/dataArray.length;let x=0;
-        for(let i=0;i<dataArray.length;i++){const v=dataArray[i]/128;ctx.lineTo(x,(v*h)/2);x+=sl;}
+      waveLayers.forEach(({ lw, alpha, c }) => {
+        ctx.beginPath(); ctx.lineWidth = lw;
+        ctx.strokeStyle = c ? this.rgba(c, alpha) : 'rgba(240,235,228,' + alpha + ')';
+        ctx.shadowColor = c ? this.rgba(c, 0.3 + bass * 0.5) : this.rgba(colors.c1, 0.2 + bass * 0.3);
+        ctx.shadowBlur = lw * 4;
+        const sl = w / dataArray.length; let x = 0;
+        for (let i = 0; i < dataArray.length; i++) { const v = dataArray[i] / 128; ctx.lineTo(x, (v * h) / 2); x += sl; }
         ctx.stroke();
       });
-      ctx.shadowBlur=0;
+      ctx.shadowBlur = 0;
     }
   }
 
   // ─── WAVE ─────────────────────────────────────────────────────────────────
   drawWave() {
-    const {ctx,w,h,dataArray}=this;
-    const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,4));
-    const layers=[
-      {lw:10,alpha:0.06+bass*0.18,sat:80},
-      {lw:4,alpha:0.25+bass*0.4,sat:60},
-      {lw:2,alpha:0.7+bass*0.3,sat:0},
+    const { ctx, w, h, dataArray } = this;
+    const colors = this.getColors();
+    const bass = this.boost(this.getAvg(0, 4));
+    const layers = [
+      { lw: 10, alpha: 0.06 + bass * 0.18, c: colors.c1 },
+      { lw: 4, alpha: 0.25 + bass * 0.4, c: colors.c2 },
+      { lw: 2, alpha: 0.7 + bass * 0.3, c: null },
     ];
-    layers.forEach(({lw,alpha,sat})=>{
-      ctx.beginPath();ctx.lineWidth=lw;
-      ctx.strokeStyle=sat?`hsla(${hue},${sat}%,60%,${alpha})`:`rgba(240,235,228,${alpha})`;
-      ctx.shadowColor=`hsla(${hue},80%,55%,${0.3+bass*0.6})`;ctx.shadowBlur=lw*4;
-      const sl=w/dataArray.length;let x=0;
-      for(let i=0;i<dataArray.length;i++){const v=dataArray[i]/128;if(i===0)ctx.moveTo(x,(v*h)/2);else ctx.lineTo(x,(v*h)/2);x+=sl;}
+    layers.forEach(({ lw, alpha, c }) => {
+      ctx.beginPath(); ctx.lineWidth = lw;
+      ctx.strokeStyle = c ? this.rgba(c, alpha) : 'rgba(240,235,228,' + alpha + ')';
+      ctx.shadowColor = c ? this.rgba(c, 0.3 + bass * 0.6) : this.rgba(colors.c1, 0.3 + bass * 0.4);
+      ctx.shadowBlur = lw * 4;
+      const sl = w / dataArray.length; let x = 0;
+      for (let i = 0; i < dataArray.length; i++) { const v = dataArray[i] / 128; if (i === 0) ctx.moveTo(x, (v * h) / 2); else ctx.lineTo(x, (v * h) / 2); x += sl; }
       ctx.stroke();
     });
-    ctx.shadowBlur=0;
+    ctx.shadowBlur = 0;
   }
 
   // ─── STARFIELD ────────────────────────────────────────────────────────────
-  initStars(){this.stars=[];for(let i=0;i<300;i++)this.stars.push({x:Math.random()*2-1,y:Math.random()*2-1,z:Math.random()});}
+  initStars() {
+    this.stars = [];
+    for (let i = 0; i < 300; i++) {
+      this.stars.push({ x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z: Math.random(), hueOffset: Math.random() * 360 });
+    }
+  }
 
   drawStarfield() {
-    const {ctx,w,h}=this;
-    const cx=w/2,cy=h/2;
-    const bass=this.boost(this.getAvg(0,6));
-    const mid=this.boost(this.getAvg(8,16));
-    const speed=0.003+bass*0.07;
-    ctx.fillStyle=`rgba(10,10,11,${0.2+(1-bass)*0.15})`;ctx.fillRect(0,0,w,h);
+    const { ctx, w, h } = this;
+    const colors = this.getColors();
+    const cx = w / 2, cy = h / 2;
+    const bass = this.boost(this.getAvg(0, 6));
+    const mid = this.boost(this.getAvg(8, 16));
+    const high = this.boost(this.getAvg(24, 40));
+    const speed = 0.003 + bass * 0.07;
+    const energy = bass * 0.5 + mid * 0.3 + high * 0.2;
+    const t = this.frame;
 
-    for(const star of this.stars){
-      const prevX=star.x/star.z,prevY=star.y/star.z;
-      star.z-=speed;
-      if(star.z<=0){star.x=Math.random()*2-1;star.y=Math.random()*2-1;star.z=1;continue;}
-      const sx=(star.x/star.z)*cx+cx,sy=(star.y/star.z)*cy+cy;
-      const px=prevX*cx+cx,py=prevY*cy+cy;
-      if(sx<0||sx>w||sy<0||sy>h)continue;
-      const size=(1-star.z)*(2+bass*4);
-      const brightness=(1-star.z);
-      const energy=bass+mid*0.5;
+    ctx.fillStyle = 'rgba(10,10,11,' + (0.2 + (1 - bass) * 0.15) + ')';
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle background glow from colors
+    if (energy > 0.3) {
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(w, h) * 0.6);
+      g.addColorStop(0, this.rgba(colors.c1, energy * 0.04));
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+    }
+
+    for (const star of this.stars) {
+      const prevX = star.x / star.z, prevY = star.y / star.z;
+      star.z -= speed;
+      if (star.z <= 0) { star.x = Math.random() * 2 - 1; star.y = Math.random() * 2 - 1; star.z = 1; star.hueOffset = Math.random() * 360; continue; }
+      const sx = (star.x / star.z) * cx + cx, sy = (star.y / star.z) * cy + cy;
+      const px = prevX * cx + cx, py = prevY * cy + cy;
+      if (sx < 0 || sx > w || sy < 0 || sy > h) continue;
+      const size = (1 - star.z) * (2 + bass * 4);
+      const brightness = (1 - star.z);
+
+      // Color: stars shimmer between the palette colors based on beat
       let color;
-      if(energy<0.3) color=`rgba(255,255,255,${brightness})`;
-      else if(energy<0.5) color=`hsla(280,50%,80%,${brightness})`;
-      else if(energy<0.7) color=`hsla(330,60%,75%,${brightness})`;
-      else color=`hsla(190,70%,75%,${brightness})`;
-      ctx.strokeStyle=color;ctx.lineWidth=size;
-      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(sx,sy);ctx.stroke();
+      const beatPhase = (t * 0.02 + star.hueOffset) % 3;
+      const beatColor = beatPhase < 1 ? colors.c1 : beatPhase < 2 ? colors.c2 : colors.c3;
+
+      if (energy < 0.2) {
+        // Low energy: white/dim stars
+        color = 'rgba(240,235,228,' + (brightness * 0.7) + ')';
+      } else if (energy < 0.5) {
+        // Medium: tinted towards palette
+        const mix = (energy - 0.2) / 0.3;
+        const r = Math.round(240 + (beatColor[0] - 240) * mix);
+        const g = Math.round(235 + (beatColor[1] - 235) * mix);
+        const b = Math.round(228 + (beatColor[2] - 228) * mix);
+        color = 'rgba(' + r + ',' + g + ',' + b + ',' + brightness + ')';
+      } else {
+        // High energy: full palette colors, stars scintillate
+        const scintillate = Math.sin(t * 0.15 + star.hueOffset) * 0.3 + 0.7;
+        color = this.rgba(beatColor, brightness * scintillate);
+      }
+
+      // Draw streak
+      ctx.strokeStyle = color;
+      ctx.lineWidth = size;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(sx, sy); ctx.stroke();
+
+      // Bright star tip glow on beat hits
+      if (bass > 0.5 && brightness > 0.6) {
+        ctx.beginPath();
+        ctx.arc(sx, sy, size * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = this.rgba(beatColor, (bass - 0.5) * brightness * 0.6);
+        ctx.fill();
+      }
     }
   }
 
   // ─── SPECTRUM ─────────────────────────────────────────────────────────────
   drawSpectrum() {
-    const {ctx,w,h,freqArray}=this;
-    const hue=this.getHue();
-    const barCount=80,barWidth=w/barCount,step=Math.floor(freqArray.length/barCount),halfH=h/2;
-    for(let i=0;i<barCount;i++){
-      const value=this.boost(freqArray[i*step]/255,0.55);
-      const barHeight=value*halfH*0.95;const t=i/barCount;const bh=hue+t*280;
-      const grad=ctx.createLinearGradient(0,halfH-barHeight,0,halfH+barHeight);
-      grad.addColorStop(0,'transparent');
-      grad.addColorStop(0.3,`hsla(${bh},85%,60%,${value*0.9})`);
-      grad.addColorStop(0.5,`hsla(${bh},90%,72%,${0.4+value*0.6})`);
-      grad.addColorStop(0.7,`hsla(${bh},85%,60%,${value*0.9})`);
-      grad.addColorStop(1,'transparent');
-      ctx.fillStyle=grad;ctx.fillRect(i*barWidth,halfH-barHeight,barWidth-1,barHeight*2);
-      if(value>0.5){ctx.shadowColor=`hsla(${bh},90%,65%,0.7)`;ctx.shadowBlur=14;ctx.fillRect(i*barWidth,halfH-2,barWidth-1,4);ctx.shadowBlur=0;}
+    const { ctx, w, h, freqArray } = this;
+    const colors = this.getColors();
+    const barCount = 80, barWidth = w / barCount, step = Math.floor(freqArray.length / barCount), halfH = h / 2;
+    for (let i = 0; i < barCount; i++) {
+      const value = this.boost(freqArray[i * step] / 255, 0.55);
+      const barHeight = value * halfH * 0.95;
+      const t = i / barCount;
+      // Interpolate between palette colors
+      const c = t < 0.5
+        ? this.lerpColor(colors.c1, colors.c2, t * 2)
+        : this.lerpColor(colors.c2, colors.c3, (t - 0.5) * 2);
+      const grad = ctx.createLinearGradient(0, halfH - barHeight, 0, halfH + barHeight);
+      grad.addColorStop(0, 'transparent');
+      grad.addColorStop(0.3, this.rgba(c, value * 0.9));
+      grad.addColorStop(0.5, this.rgba(c, 0.4 + value * 0.6));
+      grad.addColorStop(0.7, this.rgba(c, value * 0.9));
+      grad.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad; ctx.fillRect(i * barWidth, halfH - barHeight, barWidth - 1, barHeight * 2);
+      if (value > 0.5) { ctx.shadowColor = this.rgba(c, 0.7); ctx.shadowBlur = 14; ctx.fillRect(i * barWidth, halfH - 2, barWidth - 1, 4); ctx.shadowBlur = 0; }
     }
   }
 
-  // ─── GLOW (theme-aware) ───────────────────────────────────────────────────
-  initParticles(){this.particles=[];for(let i=0;i<50;i++)this.particles.push({x:Math.random(),y:Math.random(),vx:(Math.random()-0.5)*0.003,vy:(Math.random()-0.5)*0.003,size:Math.random()*3+2,offset:Math.random()*360});}
+  // ─── GLOW ─────────────────────────────────────────────────────────────────
+  initParticles() {
+    this.particles = [];
+    for (let i = 0; i < 50; i++) {
+      this.particles.push({ x: Math.random(), y: Math.random(), vx: (Math.random() - 0.5) * 0.003, vy: (Math.random() - 0.5) * 0.003, size: Math.random() * 3 + 2, offset: Math.random() * 360 });
+    }
+  }
 
   drawGlow() {
-    const {ctx,w,h}=this;
-    const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,6));const mid=this.boost(this.getAvg(6,16));
-    ctx.fillStyle=`rgba(10,10,11,${0.08+(1-bass)*0.06})`;ctx.fillRect(0,0,w,h);
-    for(const p of this.particles){
-      p.x+=p.vx*(1+bass*6)+(Math.random()-0.5)*0.003*(1+bass*5);
-      p.y+=p.vy*(1+bass*6)+(Math.random()-0.5)*0.003*(1+bass*5);
-      if(p.x<0||p.x>1)p.vx*=-1;if(p.y<0||p.y>1)p.vy*=-1;
-      p.x=Math.max(0,Math.min(1,p.x));p.y=Math.max(0,Math.min(1,p.y));
-      const px=p.x*w,py=p.y*h,radius=p.size*(1+bass*7);
-      const ph=hue+p.offset*0.3+mid*60;
-      const g=ctx.createRadialGradient(px,py,0,px,py,radius*5);
-      g.addColorStop(0,`hsla(${ph},85%,70%,${0.5+bass*0.5})`);
-      g.addColorStop(0.3,`hsla(${ph},75%,55%,${0.15+bass*0.3})`);
-      g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(px,py,radius*5,0,Math.PI*2);ctx.fill();
-      ctx.fillStyle=`hsla(${ph},95%,88%,${0.6+bass*0.4})`;
-      ctx.beginPath();ctx.arc(px,py,radius*0.4,0,Math.PI*2);ctx.fill();
+    const { ctx, w, h } = this;
+    const colors = this.getColors();
+    const bass = this.boost(this.getAvg(0, 6));
+    const mid = this.boost(this.getAvg(6, 16));
+    ctx.fillStyle = 'rgba(10,10,11,' + (0.08 + (1 - bass) * 0.06) + ')';
+    ctx.fillRect(0, 0, w, h);
+    for (const p of this.particles) {
+      p.x += p.vx * (1 + bass * 6) + (Math.random() - 0.5) * 0.003 * (1 + bass * 5);
+      p.y += p.vy * (1 + bass * 6) + (Math.random() - 0.5) * 0.003 * (1 + bass * 5);
+      if (p.x < 0 || p.x > 1) p.vx *= -1; if (p.y < 0 || p.y > 1) p.vy *= -1;
+      p.x = Math.max(0, Math.min(1, p.x)); p.y = Math.max(0, Math.min(1, p.y));
+      const px = p.x * w, py = p.y * h, radius = p.size * (1 + bass * 7);
+      // Cycle through palette colors
+      const phase = (p.offset + mid * 120) % 3;
+      const c = phase < 1 ? colors.c1 : phase < 2 ? colors.c2 : colors.c3;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, radius * 5);
+      g.addColorStop(0, this.rgba(c, 0.5 + bass * 0.5));
+      g.addColorStop(0.3, this.rgba(c, 0.15 + bass * 0.3));
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, radius * 5, 0, Math.PI * 2); ctx.fill();
+      // Bright core
+      ctx.fillStyle = this.rgba(c, 0.6 + bass * 0.4);
+      ctx.beginPath(); ctx.arc(px, py, radius * 0.4, 0, Math.PI * 2); ctx.fill();
     }
-  }
-
-  // ─── COVER DRIFT (Drift colored by cover palette) ──────────────────────────
-  drawCoverDrift() {
-    const {ctx,w,h,dataArray}=this;
-    const bass=this.boost(this.getAvg(0,6));
-    const mid=this.boost(this.getAvg(8,20));
-    const high=this.boost(this.getAvg(24,50));
-    const t=this.frame*0.01;
-    const colors=this.coverColors;
-
-    // Use cover colors or fallback to theme hue
-    const hue=this.getHue();
-    const c1=colors&&colors[0]?colors[0]:[...this.hslToRgb(hue/360,0.8,0.55)];
-    const c2=colors&&colors[1]?colors[1]:[...this.hslToRgb((hue+140)/360,0.7,0.5)];
-    const c3=colors&&colors[2]?colors[2]:[...this.hslToRgb((hue+260)/360,0.6,0.45)];
-
-    ctx.fillStyle=`rgba(10,10,11,${0.04+(1-bass)*0.04})`;
-    ctx.fillRect(0,0,w,h);
-
-    // Nebula layers colored by cover
-    const layers=[
-      {cx:0.3+Math.sin(t*0.7)*0.15,cy:0.4+Math.cos(t*0.5)*0.15,r:0.35+bass*0.5,c:c1,alpha:0.05+bass*0.2},
-      {cx:0.7+Math.cos(t*0.6)*0.12,cy:0.55+Math.sin(t*0.8)*0.12,r:0.3+mid*0.4,c:c2,alpha:0.04+mid*0.16},
-      {cx:0.5+Math.sin(t*0.9)*0.14,cy:0.35+Math.cos(t*0.4)*0.12,r:0.25+high*0.35,c:c3,alpha:0.03+high*0.12},
-    ];
-    for(const l of layers){
-      const g=ctx.createRadialGradient(l.cx*w,l.cy*h,0,l.cx*w,l.cy*h,l.r*w);
-      g.addColorStop(0,`rgba(${l.c[0]},${l.c[1]},${l.c[2]},${l.alpha})`);
-      g.addColorStop(0.4,`rgba(${l.c[0]},${l.c[1]},${l.c[2]},${l.alpha*0.5})`);
-      g.addColorStop(1,'transparent');
-      ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
-    }
-    if(bass>0.6){ctx.fillStyle=`rgba(${c1[0]},${c1[1]},${c1[2]},${(bass-0.6)*0.15})`;ctx.fillRect(0,0,w,h);}
-
-    // Wave overlay using cover colors
-    if(dataArray){
-      const waveLayers=[
-        {lw:6,alpha:0.08+bass*0.12,c:c1},
-        {lw:2.5,alpha:0.3+bass*0.4,c:c2},
-        {lw:1.2,alpha:0.6+bass*0.4,c:null},
-      ];
-      waveLayers.forEach(({lw,alpha,c})=>{
-        ctx.beginPath();ctx.lineWidth=lw;
-        ctx.strokeStyle=c?`rgba(${c[0]},${c[1]},${c[2]},${alpha})`:`rgba(240,235,228,${alpha})`;
-        ctx.shadowColor=c?`rgba(${c[0]},${c[1]},${c[2]},${0.3+bass*0.5})`:`rgba(240,235,228,${0.2+bass*0.3})`;
-        ctx.shadowBlur=lw*3;
-        const sl=w/dataArray.length;let x=0;
-        for(let i=0;i<dataArray.length;i++){const v=dataArray[i]/128;ctx.lineTo(x,(v*h)/2);x+=sl;}
-        ctx.stroke();
-      });
-      ctx.shadowBlur=0;
-    }
-  }
-
-  // Helper: HSL (0-1) to RGB (0-255)
-  hslToRgb(h,s,l){
-    let r,g,b;
-    if(s===0){r=g=b=l;}else{
-      const hue2rgb=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
-      const q=l<0.5?l*(1+s):l+s-l*s;const p=2*l-q;
-      r=hue2rgb(p,q,h+1/3);g=hue2rgb(p,q,h);b=hue2rgb(p,q,h-1/3);
-    }
-    return [Math.round(r*255),Math.round(g*255),Math.round(b*255)];
   }
 
   // ─── BARS ─────────────────────────────────────────────────────────────────
   drawBars() {
-    const {ctx,w,h,freqArray}=this;
-    const hue=this.getHue();
-    const barCount=48,totalGap=w*0.12;
-    const barWidth=(w-totalGap)/barCount,gap=totalGap/barCount;
-    const step=Math.floor(freqArray.length/barCount);
-    const bass=this.boost(this.getAvg(0,4));
-    for(let i=0;i<barCount;i++){
-      const value=this.boost(freqArray[i*step]/255,0.55);
-      const barHeight=value*h*0.78;const x=i*(barWidth+gap)+gap;const y=h-barHeight;
-      const t=i/barCount;const bh=hue+t*280;
-      const grad=ctx.createLinearGradient(x,h,x,y);
-      grad.addColorStop(0,`hsla(${bh},80%,55%,0.95)`);
-      grad.addColorStop(0.5,`hsla(${bh},85%,65%,0.8)`);
-      grad.addColorStop(1,`hsla(${bh},75%,45%,0.4)`);
-      ctx.shadowColor=`hsla(${bh},90%,60%,${value*0.8})`;ctx.shadowBlur=8+value*14;
-      ctx.fillStyle=grad;ctx.beginPath();ctx.roundRect(x,y,barWidth,barHeight,[barWidth/2,barWidth/2,2,2]);ctx.fill();
-      ctx.shadowBlur=0;
-      ctx.fillStyle=`hsla(${bh},100%,82%,${0.4+value*0.6})`;ctx.beginPath();ctx.roundRect(x,y,barWidth,3,2);ctx.fill();
+    const { ctx, w, h, freqArray } = this;
+    const colors = this.getColors();
+    const barCount = 48, totalGap = w * 0.12;
+    const barWidth = (w - totalGap) / barCount, gap = totalGap / barCount;
+    const step = Math.floor(freqArray.length / barCount);
+    const bass = this.boost(this.getAvg(0, 4));
+    for (let i = 0; i < barCount; i++) {
+      const value = this.boost(freqArray[i * step] / 255, 0.55);
+      const barHeight = value * h * 0.78; const x = i * (barWidth + gap) + gap; const y = h - barHeight;
+      const t = i / barCount;
+      const c = t < 0.5
+        ? this.lerpColor(colors.c1, colors.c2, t * 2)
+        : this.lerpColor(colors.c2, colors.c3, (t - 0.5) * 2);
+      const grad = ctx.createLinearGradient(x, h, x, y);
+      grad.addColorStop(0, this.rgba(c, 0.95));
+      grad.addColorStop(0.5, this.rgba(c, 0.8));
+      grad.addColorStop(1, this.rgba(c, 0.4));
+      ctx.shadowColor = this.rgba(c, value * 0.8); ctx.shadowBlur = 8 + value * 14;
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.roundRect(x, y, barWidth, barHeight, [barWidth / 2, barWidth / 2, 2, 2]); ctx.fill();
+      ctx.shadowBlur = 0;
+      // Bright cap
+      ctx.fillStyle = this.rgba(c, 0.4 + value * 0.6);
+      ctx.beginPath(); ctx.roundRect(x, y, barWidth, 3, 2); ctx.fill();
     }
-    if(bass>0.65){ctx.fillStyle=`hsla(${hue},80%,55%,${(bass-0.65)*0.1})`;ctx.fillRect(0,0,w,h);}
+    if (bass > 0.65) { ctx.fillStyle = this.rgba(colors.c1, (bass - 0.65) * 0.1); ctx.fillRect(0, 0, w, h); }
   }
 
   // ─── CIRCULAR ─────────────────────────────────────────────────────────────
   drawCircular() {
-    const {ctx,w,h,freqArray}=this;
-    const hue=this.getHue();
-    const cx=w/2,cy=h/2,radius=Math.min(w,h)*0.4;
-    const bars=120,step=Math.floor(freqArray.length/bars);
-    const bass=this.boost(this.getAvg(0,6));
-    const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,radius*(1.2+bass*0.6));
-    glow.addColorStop(0,`hsla(${hue},80%,55%,${bass*0.2})`);glow.addColorStop(1,'transparent');
-    ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
-    for(let i=0;i<bars;i++){
-      const value=this.boost(freqArray[i*step]/255,0.55);
-      const angle=(i/bars)*Math.PI*2-Math.PI/2;const barLen=value*radius*0.9;
-      const innerR=radius*0.35;
-      const x1=cx+Math.cos(angle)*innerR,y1=cy+Math.sin(angle)*innerR;
-      const x2=cx+Math.cos(angle)*(innerR+barLen),y2=cy+Math.sin(angle)*(innerR+barLen);
-      const bh=hue+(i/bars)*300;
-      ctx.strokeStyle=`hsla(${bh},80%,65%,${0.15+value*0.85})`;ctx.lineWidth=2+value*2.5;
-      ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+    const { ctx, w, h, freqArray } = this;
+    const colors = this.getColors();
+    const cx = w / 2, cy = h / 2, radius = Math.min(w, h) * 0.4;
+    const bars = 120, step = Math.floor(freqArray.length / bars);
+    const bass = this.boost(this.getAvg(0, 6));
+    // Center glow
+    const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius * (1.2 + bass * 0.6));
+    glow.addColorStop(0, this.rgba(colors.c1, bass * 0.2));
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < bars; i++) {
+      const value = this.boost(freqArray[i * step] / 255, 0.55);
+      const angle = (i / bars) * Math.PI * 2 - Math.PI / 2;
+      const barLen = value * radius * 0.9;
+      const innerR = radius * 0.35;
+      const x1 = cx + Math.cos(angle) * innerR, y1 = cy + Math.sin(angle) * innerR;
+      const x2 = cx + Math.cos(angle) * (innerR + barLen), y2 = cy + Math.sin(angle) * (innerR + barLen);
+      const t = i / bars;
+      const c = t < 0.33 ? colors.c1 : t < 0.66 ? colors.c2 : colors.c3;
+      ctx.strokeStyle = this.rgba(c, 0.15 + value * 0.85);
+      ctx.lineWidth = 2 + value * 2.5;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
     }
-    ctx.beginPath();ctx.arc(cx,cy,radius*0.06*(1+bass*0.8),0,Math.PI*2);
-    ctx.fillStyle=`rgba(255,240,220,${0.5+bass*0.5})`;ctx.fill();
+    // Center dot
+    ctx.beginPath(); ctx.arc(cx, cy, radius * 0.06 * (1 + bass * 0.8), 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,240,220,' + (0.5 + bass * 0.5) + ')'; ctx.fill();
   }
 
-  // ─── TEXT — smooth scrolling typography, beat = color + glitch ──────────────
+  // ─── TEXT — smooth scrolling typography ───────────────────────────────────
   drawText() {
-    const {ctx,w,h}=this;
-    const hue=this.getHue();
-    const bass=this.boost(this.getAvg(0,6));
-    const mid=this.boost(this.getAvg(8,20));
-    const t=this.frame;
+    const { ctx, w, h } = this;
+    const colors = this.getColors();
+    const bass = this.boost(this.getAvg(0, 6));
+    const mid = this.boost(this.getAvg(8, 20));
+    const t = this.frame;
+    const energy = bass * 0.6 + mid * 0.4;
 
-    // Clean fade trail
-    ctx.fillStyle='rgba(10,10,11,0.035)';ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = 'rgba(10,10,11,0.035)'; ctx.fillRect(0, 0, w, h);
 
-    const title=(this.trackTitle||'GHETTO BLASTER').toUpperCase();
-    const artist=(this.trackArtist||'').toUpperCase();
+    const title = (this.trackTitle || 'GHETTO BLASTER').toUpperCase();
+    const artist = (this.trackArtist || '').toUpperCase();
 
-    // Color shifts with music intensity
-    const energy=bass*0.6+mid*0.4;
-    const titleHue=hue+energy*60;
-    const artistHue=hue+180+mid*40;
-    const titleLightness=55+energy*25;
-    const artistLightness=50+mid*20;
-
-    // Layer 1: Title — smooth constant scroll right-to-left
-    const fontSize1=Math.min(w*0.55, h*0.65);
-    ctx.font=`900 ${fontSize1}px system-ui, sans-serif`;
-    const measuredW1=ctx.measureText(title).width;
-    const speed1=0.4; // constant speed
-    const tx1=w-((t*speed1)%(measuredW1+w));
-    const ty1=h*0.48;
+    // Layer 1: Title — smooth scroll right-to-left
+    const fontSize1 = Math.min(w * 0.55, h * 0.65);
+    ctx.font = '900 ' + fontSize1 + 'px system-ui, sans-serif';
+    const measuredW1 = ctx.measureText(title).width;
+    const speed1 = 0.4;
+    const tx1 = w - ((t * speed1) % (measuredW1 + w));
+    const ty1 = h * 0.48;
 
     // Bass glitch: blur on big hits
-    if(bass>0.8){
-      ctx.filter=`blur(${(bass-0.8)*12}px)`;
-    }
+    if (bass > 0.8) { ctx.filter = 'blur(' + ((bass - 0.8) * 12) + 'px)'; }
 
     // Glow layer
-    ctx.shadowColor=`hsla(${titleHue},85%,${titleLightness}%,${0.3+energy*0.4})`;
-    ctx.shadowBlur=15+energy*20;
-    ctx.fillStyle=`hsla(${titleHue},80%,${titleLightness}%,${0.08+energy*0.15})`;
-    ctx.fillText(title,tx1,ty1);
+    ctx.shadowColor = this.rgba(colors.c1, 0.3 + energy * 0.4);
+    ctx.shadowBlur = 15 + energy * 20;
+    ctx.fillStyle = this.rgba(colors.c1, 0.08 + energy * 0.15);
+    ctx.fillText(title, tx1, ty1);
 
     // Sharp text on top
-    ctx.shadowBlur=0;
-    ctx.filter='none';
-    ctx.fillStyle=`hsla(${titleHue},70%,${titleLightness+15}%,${0.15+energy*0.3})`;
-    ctx.fillText(title,tx1,ty1);
+    ctx.shadowBlur = 0;
+    ctx.filter = 'none';
+    ctx.fillStyle = this.rgba(colors.c1, 0.15 + energy * 0.3);
+    ctx.fillText(title, tx1, ty1);
 
-    // Layer 2: Artist — smooth scroll left-to-right (opposite)
-    if(artist){
-      const fontSize2=fontSize1*0.4;
-      ctx.font=`700 ${fontSize2}px system-ui, sans-serif`;
-      const measuredW2=ctx.measureText(artist).width;
-      const speed2=0.55; // constant, slightly faster
-      const tx2=((t*speed2)%(measuredW2+w))-measuredW2;
-      const ty2=h*0.72;
+    // Layer 2: Artist — smooth scroll left-to-right
+    if (artist) {
+      const fontSize2 = fontSize1 * 0.4;
+      ctx.font = '700 ' + fontSize2 + 'px system-ui, sans-serif';
+      const measuredW2 = ctx.measureText(artist).width;
+      const speed2 = 0.55;
+      const tx2 = ((t * speed2) % (measuredW2 + w)) - measuredW2;
+      const ty2 = h * 0.72;
 
-      if(bass>0.8){
-        ctx.filter=`blur(${(bass-0.8)*8}px)`;
-      }
+      if (bass > 0.8) { ctx.filter = 'blur(' + ((bass - 0.8) * 8) + 'px)'; }
 
-      ctx.shadowColor=`hsla(${artistHue},70%,${artistLightness}%,${0.2+mid*0.3})`;
-      ctx.shadowBlur=10+mid*15;
-      ctx.fillStyle=`hsla(${artistHue},60%,${artistLightness}%,${0.06+mid*0.12})`;
-      ctx.fillText(artist,tx2,ty2);
+      ctx.shadowColor = this.rgba(colors.c2, 0.2 + mid * 0.3);
+      ctx.shadowBlur = 10 + mid * 15;
+      ctx.fillStyle = this.rgba(colors.c2, 0.06 + mid * 0.12);
+      ctx.fillText(artist, tx2, ty2);
 
-      ctx.shadowBlur=0;
-      ctx.filter='none';
-      ctx.fillStyle=`hsla(${artistHue},50%,${artistLightness+15}%,${0.12+mid*0.22})`;
-      ctx.fillText(artist,tx2,ty2);
+      ctx.shadowBlur = 0;
+      ctx.filter = 'none';
+      ctx.fillStyle = this.rgba(colors.c2, 0.12 + mid * 0.22);
+      ctx.fillText(artist, tx2, ty2);
     }
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  lerpColor(a, b, t) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t),
+    ];
   }
 }
 

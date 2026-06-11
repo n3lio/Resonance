@@ -604,6 +604,8 @@
       border: 1px solid var(--border); border-radius: var(--radius); padding: 5px; min-width: 130px; z-index: 20;
     }
     .viz-menu.open { display: block; }
+    .viz-menu-label { padding: 6px 11px 2px; font-size: 0.62rem; font-family: var(--font); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .viz-menu-label:not(:first-child) { margin-top: 6px; border-top: 1px solid var(--border); padding-top: 8px; }
     .viz-menu-item { padding: 7px 11px; font-size: 0.76rem; font-family: var(--font); color: var(--text-muted); cursor: pointer; border-radius: var(--radius-sm); transition: all 0.15s; }
     .viz-menu-item:hover { background: var(--surface-hover); color: var(--text); }
     .viz-menu-item.active { color: var(--accent); }
@@ -810,16 +812,19 @@
             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
           </button>
           <div class="viz-menu" id="vizMenu">
-            <div class="viz-menu-item active" data-viz="drift">Drift</div>
-            <div class="viz-menu-item" data-viz="nebula">Nebula</div>
+            <div class="viz-menu-label">Shape</div>
+            <div class="viz-menu-item active" data-viz="nebula">Nebula</div>
+            <div class="viz-menu-item" data-viz="glow">Glow</div>
+            <div class="viz-menu-item" data-viz="drift">Drift</div>
             <div class="viz-menu-item" data-viz="wave">Wave</div>
             <div class="viz-menu-item" data-viz="starfield">Starfield</div>
-            <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
-            <div class="viz-menu-item" data-viz="glow">Glow</div>
-            <div class="viz-menu-item" data-viz="coverdrift">Cover Drift</div>
             <div class="viz-menu-item" data-viz="bars">Bars</div>
+            <div class="viz-menu-item" data-viz="spectrum">Spectrum</div>
             <div class="viz-menu-item" data-viz="circular">Circular</div>
             <div class="viz-menu-item" data-viz="text">Text</div>
+            <div class="viz-menu-label">Colors</div>
+            <div class="viz-menu-item active" data-color="theme">Theme (auto)</div>
+            <div class="viz-menu-item" data-color="cover">Cover</div>
             <div class="viz-menu-item close-item" id="vizCloseItem">Disable visualization</div>
           </div>
         </div>
@@ -1038,15 +1043,19 @@
       <label>Style</label>
       <select id="settingsVizMode" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;">
         <option value="nebula">Nebula</option>
+        <option value="glow">Glow</option>
         <option value="drift">Drift</option>
         <option value="wave">Wave</option>
         <option value="starfield">Starfield</option>
-        <option value="spectrum">Spectrum</option>
-        <option value="glow">Glow</option>
-        <option value="coverdrift">Cover Drift</option>
         <option value="bars">Bars</option>
+        <option value="spectrum">Spectrum</option>
         <option value="circular">Circular</option>
         <option value="text">Text</option>
+      </select>
+      <label style="font-size:0.78rem;color:var(--text-muted);display:block;margin-top:10px;">Color mode</label>
+      <select id="settingsVizColor" style="width:100%;padding:8px 12px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg);color:var(--text);font-family:var(--font);font-size:0.83rem;margin-top:4px;">
+        <option value="theme">Theme (auto)</option>
+        <option value="cover">Cover</option>
       </select>
     </div>
 
@@ -2439,7 +2448,7 @@ function clearCoverAmbient() {
 // ─── Visualizer ──────────────────────────────────────────────────────────────
 var vizContainer = document.getElementById('vizContainer');
 var vizCanvas = document.getElementById('vizCanvas');
-var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'drift';
+var viz = null, vizInitialized = false, vizVisible = true, vizMode = 'nebula';
 // Set active class to match default vizVisible=true (canvas visible)
 vizContainer.classList.add('active');
 
@@ -2448,6 +2457,7 @@ function initViz() {
   try {
     viz = new Visualizer(vizCanvas, audio);
     viz.setMode(vizMode);
+    viz.setColorMode(vizColorMode);
     viz.initAudio();
     vizInitialized = true;
     viz.start();
@@ -2461,8 +2471,10 @@ function toggleViz() {
   else { if (viz) viz.stop(); }
 }
 
+var vizColorMode = 'theme';
 document.getElementById('vizGearBtn').addEventListener('click', function(e) { e.stopPropagation(); document.getElementById('vizMenu').classList.toggle('open'); });
 document.addEventListener('click', function() { document.getElementById('vizMenu').classList.remove('open'); });
+// Shape selection
 document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
   item.addEventListener('click', function(e) {
     e.stopPropagation();
@@ -2472,6 +2484,18 @@ document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(item) {
     item.classList.add('active');
     document.getElementById('vizMenu').classList.remove('open');
     if (isDesktop && window.resonance) window.resonance.setConfig({ vizMode: vizMode });
+  });
+});
+// Color mode selection
+document.querySelectorAll('.viz-menu-item[data-color]').forEach(function(item) {
+  item.addEventListener('click', function(e) {
+    e.stopPropagation();
+    vizColorMode = item.dataset.color;
+    if (viz) viz.setColorMode(vizColorMode);
+    document.querySelectorAll('.viz-menu-item[data-color]').forEach(function(i){i.classList.remove('active')});
+    item.classList.add('active');
+    document.getElementById('vizMenu').classList.remove('open');
+    if (isDesktop && window.resonance) window.resonance.setConfig({ vizColorMode: vizColorMode });
   });
 });
 document.getElementById('vizCloseItem').addEventListener('click', function(e) {
@@ -2603,6 +2627,7 @@ async function openSettings() {
     var cfg = await window.resonance.getConfig();
     settingsFolders = cfg.musicFolders || [];
     document.getElementById('settingsVizMode').value = vizMode;
+    document.getElementById('settingsVizColor').value = vizColorMode;
     document.getElementById('settingsVizEnabled').checked = vizVisible;
     document.getElementById('settingsHue').value = cfg.hue || 38;
     document.getElementById('settingsLanEnabled').checked = cfg.lanEnabled !== false;
@@ -2720,6 +2745,7 @@ document.getElementById('downloadQrBtn').addEventListener('click', function() {
 async function saveSettings(opts) {
   var doRescan = opts && opts.rescan;
   vizMode = document.getElementById('settingsVizMode').value;
+  vizColorMode = document.getElementById('settingsVizColor').value;
   vizVisible = document.getElementById('settingsVizEnabled').checked;
   var hue = parseInt(document.getElementById('settingsHue').value);
   var lanEnabled = document.getElementById('settingsLanEnabled').checked;
@@ -2738,8 +2764,9 @@ async function saveSettings(opts) {
     audio.setSinkId('default').catch(function(){});
   }
 
-  if (viz) viz.setMode(vizMode);
+  if (viz) { viz.setMode(vizMode); viz.setColorMode(vizColorMode); }
   document.querySelectorAll('.viz-menu-item[data-viz]').forEach(function(i){ i.classList.toggle('active', i.dataset.viz === vizMode); });
+  document.querySelectorAll('.viz-menu-item[data-color]').forEach(function(i){ i.classList.toggle('active', i.dataset.color === vizColorMode); });
   document.getElementById('vizContainer').classList.toggle('active', vizVisible);
   if (vizVisible && viz) { viz.resize(); viz.start(); }
   else if (viz) viz.stop();
@@ -2751,7 +2778,7 @@ async function saveSettings(opts) {
   settingsModal.classList.remove('open');
 
   if (window.resonance) {
-    window._appConfig = { musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration, audioOutput: audioOutput };
+    window._appConfig = { musicFolders: settingsFolders, vizEnabled: vizVisible, vizMode: vizMode, vizColorMode: vizColorMode, hue: hue, lanEnabled: lanEnabled, crossfade: crossfade, crossfadeDuration: crossfadeDuration, audioOutput: audioOutput };
     await window.resonance.setConfig(window._appConfig);
   }
 
@@ -2777,6 +2804,7 @@ if (isDesktop) {
     if (cfg.vizEnabled === false) { vizVisible = false; document.getElementById('vizContainer').classList.remove('active'); }
     else { vizVisible = true; document.getElementById('vizContainer').classList.add('active'); }
     if (cfg.vizMode) { vizMode = cfg.vizMode; if (viz) viz.setMode(vizMode); }
+    if (cfg.vizColorMode) { vizColorMode = cfg.vizColorMode; if (viz) viz.setColorMode(vizColorMode); document.querySelectorAll('.viz-menu-item[data-color]').forEach(function(i){ i.classList.toggle('active', i.dataset.color === vizColorMode); }); }
     if (cfg.volume != null) { audio.volume = cfg.volume; document.getElementById('volumeSlider').value = cfg.volume; }
     if (cfg.hue != null) { document.documentElement.style.setProperty('--hue', cfg.hue); }
     // Audio output: always start on default device (BT speaker may be off)
