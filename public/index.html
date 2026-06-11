@@ -3141,39 +3141,52 @@ function startEqWave() {
 
 function fetchStats() {
   fetch('/api/stats').then(function(r){ return r.json(); }).then(function(s) {
-    var hours = Math.floor(s.month.minutes / 60);
+    var week = s.week || {};
+    var month = s.month || {};
+    var hours = Math.floor((month.minutes || 0) / 60);
+    var topArtists = s.topArtists || [];
+    var topGenres = s.topGenres || [];
     var cards = document.getElementById('statsCards');
     cards.innerHTML =
-      '<div class="stat-card"><div class="stat-value">' + s.week.plays + '</div><div class="stat-label">Plays this week</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (week.plays || 0) + '</div><div class="stat-label">Plays this week</div></div>' +
       '<div class="stat-card"><div class="stat-value">' + hours + 'h</div><div class="stat-label">Listened (30d)</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + s.totalTracks + '</div><div class="stat-label">Total tracks</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + s.favorites + '</div><div class="stat-label">Favorites</div></div>';
+      '<div class="stat-card"><div class="stat-value">' + (s.totalTracks || 0) + '</div><div class="stat-label">Total tracks</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (s.favorites || 0) + '</div><div class="stat-label">Favorites</div></div>';
 
-    var maxArtist = s.topArtists.length ? s.topArtists[0].count : 1;
-    document.getElementById('statsArtists').innerHTML = s.topArtists.map(function(a, i) {
-      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(a.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (a.count/maxArtist*100) + '%"></div></div><span class="stat-count">' + a.count + '</span></div>';
-    }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
+    if (!topArtists.length) {
+      document.getElementById('statsArtists').innerHTML = '<p style="font-size:0.78rem;color:var(--text-dim);">No listening data yet — play some tracks!</p>';
+    } else {
+      var maxArtist = topArtists[0].count;
+      document.getElementById('statsArtists').innerHTML = topArtists.map(function(a, i) {
+        return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(a.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (a.count/maxArtist*100) + '%"></div></div><span class="stat-count">' + a.count + '</span></div>';
+      }).join('');
+    }
 
-    var maxGenre = s.topGenres.length ? s.topGenres[0].count : 1;
-    document.getElementById('statsGenres').innerHTML = s.topGenres.map(function(g, i) {
-      var barColor = getGenreBarColor(g.name);
-      return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%;background:' + barColor + '"></div></div><span class="stat-count">' + g.count + '</span></div>';
-    }).join('') || '<p style="font-size:0.78rem;color:var(--text-dim);">No data yet</p>';
+    if (!topGenres.length) {
+      document.getElementById('statsGenres').innerHTML = '<p style="font-size:0.78rem;color:var(--text-dim);">No listening data yet — play some tracks!</p>';
+    } else {
+      var maxGenre = topGenres[0].count;
+      document.getElementById('statsGenres').innerHTML = topGenres.map(function(g, i) {
+        var barColor = getGenreBarColor(g.name);
+        return '<div class="stat-row"><span class="stat-rank">' + (i+1) + '</span><span class="stat-name">' + esc(g.name) + '</span><div class="stat-bar"><div class="stat-bar-fill" style="width:' + (g.count/maxGenre*100) + '%;background:' + barColor + '"></div></div><span class="stat-count">' + g.count + '</span></div>';
+      }).join('');
+    }
   }).catch(function(){});
 
   // Server stats
   fetch('/api/server/stats').then(function(r){ return r.json(); }).then(function(sv) {
-    var uptimeStr = formatUptime(sv.uptime);
+    var uptimeStr = formatUptime(sv.uptime || 0);
     var cards = document.getElementById('serverStatsCards');
     cards.innerHTML =
       '<div class="stat-card"><div class="stat-value">' + uptimeStr + '</div><div class="stat-label">Server uptime</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + sv.uniqueDevices + '</div><div class="stat-label">Unique devices</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + sv.currentConnections + '</div><div class="stat-label">Active now</div></div>' +
-      '<div class="stat-card"><div class="stat-value">' + sv.totalConnections + '</div><div class="stat-label">Total connections</div></div>';
+      '<div class="stat-card"><div class="stat-value">' + (sv.uniqueDevices || 0) + '</div><div class="stat-label">Unique devices</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (sv.currentConnections || 0) + '</div><div class="stat-label">Active now</div></div>' +
+      '<div class="stat-card"><div class="stat-value">' + (sv.totalConnections || 0) + '</div><div class="stat-label">Total connections</div></div>';
   }).catch(function(){});
 }
 
 function formatUptime(seconds) {
+  if (!seconds || isNaN(seconds)) return '0s';
   if (seconds < 60) return seconds + 's';
   if (seconds < 3600) return Math.floor(seconds / 60) + 'min';
   var h = Math.floor(seconds / 3600);
