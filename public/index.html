@@ -1436,20 +1436,29 @@ function renderQueue() {
     // Only full re-render if queue data changed
     var newHash = remoteQueueData.length + ':' + (remoteQueueData[0] ? remoteQueueData[0].id : '');
     if (newHash === lastQueueHash) {
-      // Just update highlight
+      // Ensure current track is rendered (lazy load more batches if needed)
+      while (sci >= remoteQueueRendered && remoteQueueRendered < remoteQueueData.length) {
+        appendRemoteQueueBatch(list, sci);
+      }
+      // Update highlight
       var items = list.querySelectorAll('.track-item');
       items.forEach(function(el) {
         var ri = parseInt(el.dataset.rindex);
         el.classList.toggle('playing', ri === sci);
       });
+      scrollToCurrentInQueue();
       return;
     }
     lastQueueHash = newHash;
 
-    // Lazy render server queue
+    // Lazy render server queue — render batches until current track is included
     remoteQueueRendered = 0;
     list.innerHTML = '';
     appendRemoteQueueBatch(list, sci);
+    while (sci >= remoteQueueRendered && remoteQueueRendered < remoteQueueData.length) {
+      appendRemoteQueueBatch(list, sci);
+    }
+    scrollToCurrentInQueue();
     return;
   }
 
@@ -3349,13 +3358,20 @@ function remoteAddToQueue(trackId) {
       }
       if (mobileMode === 'remote') {
         updatePlayerFromDesktop(msg.data);
-        // Only update highlight (not full re-render — queue fetched separately)
+        // Update queue highlight + scroll to current when index changes
         if (prevState && prevState.currentIndex !== msg.data.currentIndex) {
-          var items = document.getElementById('queueList').querySelectorAll('.track-item');
+          var sci = msg.data.currentIndex;
+          var list = document.getElementById('queueList');
+          // Ensure the current track is rendered (lazy load more if needed)
+          while (sci >= remoteQueueRendered && remoteQueueRendered < remoteQueueData.length) {
+            appendRemoteQueueBatch(list, sci);
+          }
+          var items = list.querySelectorAll('.track-item');
           items.forEach(function(el) {
             var ri = parseInt(el.dataset.rindex);
-            el.classList.toggle('playing', ri === msg.data.currentIndex);
+            el.classList.toggle('playing', ri === sci);
           });
+          scrollToCurrentInQueue();
         }
       }
     }
